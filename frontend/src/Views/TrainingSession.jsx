@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { useParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 export default function TrainingSession() {
   const [words, setWords] = useState([]);
@@ -11,14 +11,44 @@ export default function TrainingSession() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const clickSound = useRef(new Audio("/click.mp3"));
+  const token = localStorage.getItem("access");
+  const decoded = token ? jwtDecode(token) : null;
+  const userId = decoded?.user_id;
+
+  const [speed, setSpeed] = useState(200);
+  const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    axios
+      .get("http://127.0.0.1:8000/api/user/settings/", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        setSpeed(res.data.speed);
+        setIsMuted(res.data.muted);
+      })
+      .catch(() => {
+        setSpeed(200);
+        setIsMuted(false);
+      });
+  }, [token]);
+
   useEffect(() => {
     async function fetchText() {
-      const res = await axios.get(`http://127.0.0.1:8000/api/exercises/`);
-      const exercise = res.data.find((e) => e.id === parseInt(id));
-      if (exercise) {
-        const wordList = exercise.text.trim().split(/\s+/);
-        setWords(wordList);
-        setStartTime(Date.now());
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/exercises/");
+        const exercise = res.data.find((e) => e.id === parseInt(id));
+        if (exercise) {
+          const wordList = exercise.text.trim().split(/\s+/);
+          setWords(wordList);
+          setStartTime(Date.now());
+          setIndex(0);
+          setHasEnded(false);
+        }
+      } catch (error) {
+        console.error("Błąd ładowania ćwiczenia:", error);
       }
     }
     fetchText();
@@ -26,7 +56,12 @@ export default function TrainingSession() {
 
   useEffect(() => {
     if (words.length > 0 && index < words.length) {
-      const timer = setTimeout(() => setIndex(index + 1), 200);
+      const timer = setTimeout(() => setIndex(index + 1), speed);
+
+      if (!isMuted) {
+        clickSound.current.play().catch(() => {});
+      }
+
       return () => clearTimeout(timer);
     } else if (words.length > 0 && index >= words.length && !hasEnded) {
       setHasEnded(true);
@@ -34,17 +69,21 @@ export default function TrainingSession() {
       const minutes = (endTime - startTime) / 60000;
       const wpm = Math.round(words.length / minutes);
 
-      axios.post("http://127.0.0.1:8000/api/submit-progress/", {
-        user: decoded_user_id_from_JWT,
-        exercise: id,
-        wpm,
-        accuracy: 100,
-      });
+      axios.post(
+        "http://127.0.0.1:8000/api/submit-progress/",
+        {
+          user: userId,
+          exercise: id,
+          wpm,
+          accuracy: 100,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       alert(`Ćwiczenie ukończone! Prędkość: ${wpm} słów/min`);
       navigate("/dashboard");
     }
-  }, [index, words]);
+  }, [index, words, speed, isMuted]);
 
   if (words.length === 0) return <p>Ładowanie...</p>;
 

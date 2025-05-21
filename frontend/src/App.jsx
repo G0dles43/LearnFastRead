@@ -5,6 +5,7 @@ import Register from "./Views/Register";
 import Home from "./Views/Home";
 import Dashboard from "./Views/Dashboard";
 import TrainingSession from "./Views/TrainingSession";
+import Settings from "./Views/Settings";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/training" element={<TrainingSession />} />
           <Route path="/training/:id" element={<TrainingSession />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </BrowserRouter>
     </>

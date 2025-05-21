@@ -25,6 +25,7 @@ export default function Dashboard() {
       >
         Wyloguj
       </button>
+      <button onClick={() => navigate("/settings")}>⚙️ Ustawienia</button>
 
       <h2>Lista ćwiczeń</h2>
       {exercises.map((ex) => (

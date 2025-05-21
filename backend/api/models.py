@@ -2,8 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class CustomUser(AbstractUser):
-    # Możesz dodać pola takie jak poziom, punkty itp. później
-    pass
+    speed = models.IntegerField(default=200)  
+    muted = models.BooleanField(default=False)
 
 class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
