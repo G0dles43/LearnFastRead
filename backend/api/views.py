@@ -30,6 +30,15 @@ class ReadingExerciseCreate(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+class ReadingExerciseDelete(generics.DestroyAPIView):
+    queryset = ReadingExercise.objects.all()
+    serializer_class = ReadingExerciseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return ReadingExercise.objects.filter(created_by=self.request.user)
+
+
 class SubmitProgress(generics.CreateAPIView):
     serializer_class = UserProgressSerializer
 
@@ -47,15 +56,12 @@ class UserSettingsView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-import requests
-import re
-from rest_framework.response import Response
-from rest_framework.views import APIView
+
 
 class SearchExercises(APIView):
     def get(self, request):
         query = request.GET.get('query', '')
-        limit = int(request.GET.get('limit', 500))  # ilość słów
+        limit = int(request.GET.get('limit', 500))  
         if not query:
             return Response({"results": []})
 
