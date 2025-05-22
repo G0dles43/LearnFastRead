@@ -9,6 +9,12 @@ class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(  
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True
+    )
 
 class UserProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)

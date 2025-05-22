@@ -6,6 +6,7 @@ import Home from "./Components/Home";
 import Dashboard from "./Components/Dashboard";
 import TrainingSession from "./Components/TrainingSession";
 import Settings from "./Components/Settings";
+import ExerciseCreator from "./Components/ExerciseCreator";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -37,6 +38,7 @@ function App() {
           <Route path="/training" element={<TrainingSession />} />
           <Route path="/training/:id" element={<TrainingSession />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/create-exercise" element={<ExerciseCreator />} />
         </Routes>
       </BrowserRouter>
     </>
