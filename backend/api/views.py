@@ -4,12 +4,14 @@ from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
 from .models import ReadingExercise, UserProgress
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
+
 User = get_user_model()
 
 class RegisterView(generics.CreateAPIView):
@@ -110,3 +112,15 @@ class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]  
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_favorite(request, pk):
+    try:
+        exercise = ReadingExercise.objects.get(pk=pk, created_by=request.user)
+        exercise.is_favorite = not exercise.is_favorite
+        exercise.save()
+        return Response({"is_favorite": exercise.is_favorite})
+    except ReadingExercise.DoesNotExist:
+        return Response({"error": "Nie znaleziono ćwiczenia"}, status=404)

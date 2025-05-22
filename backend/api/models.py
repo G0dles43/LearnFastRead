@@ -9,6 +9,7 @@ class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    is_favorite = models.BooleanField(default=False)
     created_by = models.ForeignKey(  
         CustomUser, 
         on_delete=models.SET_NULL, 
