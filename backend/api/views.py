@@ -2,13 +2,13 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import ReadingExercise, UserProgress
+from .models import ReadingExercise, Question
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from .serializers import ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from rest_framework import status, serializers
+from .serializers import QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
 
@@ -41,6 +41,14 @@ class ReadingExerciseDelete(generics.DestroyAPIView):
 
 class SubmitProgress(generics.CreateAPIView):
     serializer_class = UserProgressSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        exercise = serializer.validated_data['exercise']
+        if not exercise.is_ranked:
+            raise serializers.ValidationError("Postęp tylko dla ćwiczeń ranked.")
+        serializer.save()
+
 
 class UserSettingsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -130,3 +138,11 @@ def toggle_favorite(request, pk):
         return Response({"is_favorite": exercise.is_favorite})
     except ReadingExercise.DoesNotExist:
         return Response({"error": "Nie znaleziono ćwiczenia"}, status=404)
+    
+class QuestionListView(generics.ListAPIView):
+    serializer_class = QuestionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        exercise_id = self.kwargs['exercise_id']
+        return Question.objects.filter(exercise_id=exercise_id)

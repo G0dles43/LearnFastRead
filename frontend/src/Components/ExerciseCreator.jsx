@@ -143,31 +143,6 @@ export default function ExerciseCreator() {
           </li>
         ))}
       </ul>
-      {isAdmin && (
-        <>
-          <label>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            Publiczne
-          </label>
-
-          <label>
-            <input
-              type="checkbox"
-              checked={isRanked}
-              onChange={(e) => setIsRanked(e.target.checked)}
-            />
-            Ranked (ćwiczenie z pytaniami)
-          </label>
-
-          {isRanked && (
-            <QuestionsEditor questions={questions} onChange={setQuestions} />
-          )}
-        </>
-      )}
     </div>
   );
 }

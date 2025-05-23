@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import Quiz from "./Quiz";
 
 export default function TrainingSession() {
   const [words, setWords] = useState([]);
@@ -24,6 +25,12 @@ export default function TrainingSession() {
   const totalWords = words.length;
   const remainingWords = totalWords - index;
   const estimatedTimeLeftSec = Math.ceil((remainingWords * speed) / 1000);
+
+  const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState({});
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizScore, setQuizScore] = useState(null);
+  const [exercise, setExercise] = useState(null);
 
   useEffect(() => {
     if (!token) return;
@@ -52,7 +59,9 @@ export default function TrainingSession() {
             },
           }
         );
+
         const exercise = res.data;
+        setExercise(exercise);
         if (exercise) {
           const cleanText = exercise.text
             .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
@@ -88,19 +97,32 @@ export default function TrainingSession() {
       const minutes = (endTime - startTime) / 60000;
       const wpm = Math.round(words.length / minutes);
 
-      axios.post(
-        "http://127.0.0.1:8000/api/submit-progress/",
-        {
-          user: userId,
-          exercise: id,
-          wpm,
-          accuracy: 100,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
+      if (exercise?.is_ranked) {
+        // POBIERZ PYTANIA
+        axios
+          .get(`http://127.0.0.1:8000/api/exercises/${id}/questions/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((res) => {
+            setQuestions(res.data);
+            setShowQuiz(true); // wyświetl quiz
+          });
+      } else {
+        // Zwykłe ćwiczenie
+        axios.post(
+          "http://127.0.0.1:8000/api/submit-progress/",
+          {
+            user: userId,
+            exercise: id,
+            wpm,
+            accuracy: 100,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert(`Ćwiczenie ukończone! Prędkość: ${wpm} słów/min`);
+        navigate("/dashboard");
+      }
       alert(`Ćwiczenie ukończone! Prędkość: ${wpm} słów/min`);
-      navigate("/dashboard");
     }
   }, [index, words, speed, isMuted, isPaused]);
 
@@ -142,15 +164,27 @@ export default function TrainingSession() {
           right: "20px",
         }}
       >
+        <button onClick={() => navigate("/dashboard")}>Przerwij</button>
         <button onClick={() => setIsPaused(!isPaused)}>
           {isPaused ? "Wznów" : "Pauza"}
         </button>
         <button onClick={() => setIndex(0)}>Restart</button>
       </div>
 
-      <span style={{ whiteSpace: "nowrap", minWidth: "150px" }}>
-        {words[index]}
-      </span>
+      {showQuiz ? (
+        <Quiz
+          questions={questions}
+          exerciseId={id}
+          userId={userId}
+          wpm={Math.round(words.length / ((Date.now() - startTime) / 60000))}
+          token={token}
+          onFinish={() => navigate("/dashboard")}
+        />
+      ) : (
+        <span style={{ whiteSpace: "nowrap", minWidth: "150px" }}>
+          {words[index]}
+        </span>
+      )}
     </div>
   );
 }

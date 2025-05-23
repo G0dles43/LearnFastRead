@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import ReadingExercise, UserProgress
+from .models import ReadingExercise, UserProgress, Question
 
 User = get_user_model()
 
@@ -24,10 +24,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ['id', 'text', 'correct_answer']
+
 class ReadingExerciseSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(source='created_by.username')
     created_by_id = serializers.ReadOnlyField(source='created_by.id') 
     word_count = serializers.SerializerMethodField()
+    questions = QuestionSerializer(many=True, read_only=True)
+
 
     class Meta:
         model = ReadingExercise
@@ -36,6 +43,15 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
 
     def get_word_count(self, obj):
         return len(obj.text.split())
+    
+    def validate(self, data):
+        user = self.context['request'].user
+        if not user.is_staff:
+            if data.get('is_public', False):
+                raise serializers.ValidationError("Nie możesz tworzyć ćwiczeń publicznych.")
+            if data.get('is_ranked', False):
+                raise serializers.ValidationError("Nie możesz tworzyć ćwiczeń ranked.")
+        return data
     
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
