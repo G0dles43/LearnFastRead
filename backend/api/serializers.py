@@ -7,7 +7,7 @@ User = get_user_model()
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['speed', 'muted']
+        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height']
         
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

@@ -9,6 +9,9 @@ export default function Settings() {
   const [speed, setSpeed] = useState(200);
   const [isMuted, setIsMuted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState("rsvp");
+  const [highlightWidth, setHighlightWidth] = useState(600);
+  const [highlightHeight, setHighlightHeight] = useState(300);
 
   useEffect(() => {
     if (!token) return;
@@ -19,6 +22,9 @@ export default function Settings() {
       .then((res) => {
         setSpeed(res.data.speed);
         setIsMuted(res.data.muted);
+        setMode(res.data.mode);
+        setHighlightWidth(res.data.highlight_width || 600);
+        setHighlightHeight(res.data.highlight_height || 300);
         setLoading(false);
       })
       .catch(() => {
@@ -31,7 +37,13 @@ export default function Settings() {
     axios
       .patch(
         "http://127.0.0.1:8000/api/user/settings/",
-        { speed, muted: isMuted },
+        {
+          speed,
+          muted: isMuted,
+          mode,
+          highlight_width: highlightWidth,
+          highlight_height: highlightHeight,
+        },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -50,6 +62,16 @@ export default function Settings() {
   return (
     <div style={{ padding: "20px", maxWidth: "600px", margin: "auto" }}>
       <h2>Ustawienia</h2>
+
+      <div style={{ marginTop: "20px" }}>
+        <label>
+          Tryb czytania: <br />
+          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="rsvp">RSVP (jedno słowo)</option>
+            <option value="highlight">Podświetlanie w tekście</option>
+          </select>
+        </label>
+      </div>
 
       <div>
         <label>
@@ -76,6 +98,36 @@ export default function Settings() {
           Wycisz kliknięcie
         </label>
       </div>
+
+      {mode === "highlight" && (
+        <>
+          <div style={{ marginTop: "20px" }}>
+            <label>
+              Szerokość okna (px): <br />
+              <input
+                type="number"
+                min="200"
+                max="1200"
+                value={highlightWidth}
+                onChange={(e) => setHighlightWidth(parseInt(e.target.value))}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <label>
+              Wysokość okna (px): <br />
+              <input
+                type="number"
+                min="100"
+                max="800"
+                value={highlightHeight}
+                onChange={(e) => setHighlightHeight(parseInt(e.target.value))}
+              />
+            </label>
+          </div>
+        </>
+      )}
 
       <button onClick={handleSave} style={{ marginTop: "30px" }}>
         Zapisz i wróć
