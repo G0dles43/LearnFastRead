@@ -4,6 +4,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Quiz from "./Quiz";
 import HighlightReader from "./HighlightReader";
+import RSVPReader from "./RSVPReader";
+import ChunkingReader from "./ChunkingReader";
+import styles from "./Training.module.css";
 
 export default function TrainingSession() {
   const [words, setWords] = useState([]);
@@ -21,6 +24,7 @@ export default function TrainingSession() {
   const [speed, setSpeed] = useState(200);
   const [isMuted, setIsMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [chunkSize, setChunkSize] = useState(3); // Nowe: rozmiar chunka
   const [highlightDimensions, setHighlightDimensions] = useState({
     width: 600,
     height: 300,
@@ -34,7 +38,7 @@ export default function TrainingSession() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [exercise, setExercise] = useState(null);
 
-  // Pobierz ustawienia użytkownika (speed, muted, mode)
+  // Pobierz ustawienia użytkownika
   useEffect(() => {
     if (!token) return;
     axios
@@ -45,6 +49,7 @@ export default function TrainingSession() {
         setSpeed(res.data.speed);
         setIsMuted(res.data.muted);
         setMode(res.data.mode || "rsvp");
+        setChunkSize(res.data.chunk_size || 3); // Pobierz chunk_size
         setHighlightDimensions({
           width: res.data.highlight_width || 600,
           height: res.data.highlight_height || 300,
@@ -54,10 +59,11 @@ export default function TrainingSession() {
         setSpeed(200);
         setIsMuted(false);
         setMode("rsvp");
+        setChunkSize(3);
       });
   }, [token]);
 
-  // Pobierz tekst ćwiczenia i podziel na słowa
+  // Pobierz tekst ćwiczenia
   useEffect(() => {
     async function fetchText() {
       try {
@@ -89,12 +95,16 @@ export default function TrainingSession() {
     fetchText();
   }, [id, token]);
 
+  // Timer dla postępu czytania
   useEffect(() => {
     if (words.length === 0 || isPaused || hasEnded) return;
 
-    if ((mode === "rsvp" || mode === "highlight") && index < words.length) {
+    if (index < words.length) {
+      // Dla chunking zwiększamy index o chunkSize
+      const increment = mode === "chunking" ? chunkSize : 1;
+      
       const timer = setTimeout(() => {
-        setIndex((prev) => prev + 1);
+        setIndex((prev) => Math.min(prev + increment, words.length));
       }, speed);
 
       if (!isMuted) {
@@ -106,7 +116,7 @@ export default function TrainingSession() {
     } else if (index >= words.length && !hasEnded) {
       finishExercise();
     }
-  }, [index, words, speed, isMuted, isPaused, mode, hasEnded]);
+  }, [index, words, speed, isMuted, isPaused, mode, hasEnded, chunkSize]);
 
   // Kończenie ćwiczenia
   const finishExercise = () => {
@@ -140,35 +150,46 @@ export default function TrainingSession() {
     }
   };
 
-  if (words.length === 0) return <p>Ładowanie...</p>;
+  if (words.length === 0) return <p className={styles.loading}>Ładowanie...</p>;
+
+  // Funkcja wyboru komponentu czytania
+  const renderReader = () => {
+    switch(mode) {
+      case "rsvp":
+        return <RSVPReader currentWord={words[index]} />;
+      case "highlight":
+        return (
+          <HighlightReader
+            text={words.join(" ")}
+            currentIndex={index}
+            width={highlightDimensions.width}
+            height={highlightDimensions.height}
+          />
+        );
+      case "chunking":
+        return (
+          <ChunkingReader
+            words={words}
+            currentIndex={index}
+            chunkSize={chunkSize}
+          />
+        );
+      default:
+        return <RSVPReader currentWord={words[index]} />;
+    }
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        padding: "20px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          display: "flex",
-          gap: "10px",
-          zIndex: 1000,
-        }}
-      >
-        <button onClick={() => navigate("/dashboard")}>Przerwij</button>
-        <button onClick={() => setIsPaused(!isPaused)}>
+    <div className={styles.sessionContainer}>
+      <div className={styles.controls}>
+        <button className="button-secondary" onClick={() => navigate("/dashboard")}>
+          Przerwij
+        </button>
+        <button className="button-secondary" onClick={() => setIsPaused(!isPaused)}>
           {isPaused ? "Wznów" : "Pauza"}
         </button>
         <button
+          className="button-secondary"
           onClick={() => {
             setIndex(0);
             setHasEnded(false);
@@ -189,45 +210,23 @@ export default function TrainingSession() {
           token={token}
           onFinish={() => navigate("/dashboard")}
         />
-      ) : mode === "rsvp" ? (
-        <div
-          style={{
-            fontSize: "32px",
-            textAlign: "center",
-            margin: "20px 0",
-            minHeight: "50px",
-            width: "100%",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            position: "relative",
-          }}
-        >
-          <span style={{ whiteSpace: "nowrap", minWidth: "150px" }}>
-            {words[index]}
-          </span>
-        </div>
       ) : (
-        <HighlightReader
-          text={words.join(" ")}
-          currentIndex={index}
-          width={highlightDimensions.width}
-          height={highlightDimensions.height}
-        />
+        renderReader()
       )}
 
-      <div
-        style={{
-          marginTop: "20px",
-          textAlign: "center",
-          fontSize: "16px",
-          color: "#555",
-        }}
-      >
-        <p>
-          Słowo: {index + 1} z {totalWords} • Pozostało: {estimatedTimeLeftSec}s
-        </p>
-      </div>
+      {!showQuiz && (
+        <div className={styles.statusBar}>
+          <p>
+            Słowo: {index + 1} / {totalWords}
+          </p>
+          <progress
+            className={styles.progressBar}
+            value={index + 1}
+            max={totalWords}
+          ></progress>
+          <p>Pozostało ok: {estimatedTimeLeftSec}s</p>
+        </div>
+      )}
     </div>
   );
 }

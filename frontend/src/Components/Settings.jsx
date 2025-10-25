@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import styles from "./Settings.module.css";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function Settings() {
   const [mode, setMode] = useState("rsvp");
   const [highlightWidth, setHighlightWidth] = useState(600);
   const [highlightHeight, setHighlightHeight] = useState(300);
+  const [chunkSize, setChunkSize] = useState(3);
 
   useEffect(() => {
     if (!token) return;
@@ -25,6 +27,7 @@ export default function Settings() {
         setMode(res.data.mode);
         setHighlightWidth(res.data.highlight_width || 600);
         setHighlightHeight(res.data.highlight_height || 300);
+        setChunkSize(res.data.chunk_size || 3);
         setLoading(false);
       })
       .catch(() => {
@@ -43,6 +46,7 @@ export default function Settings() {
           mode,
           highlight_width: highlightWidth,
           highlight_height: highlightHeight,
+          chunk_size: chunkSize,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -57,27 +61,44 @@ export default function Settings() {
       });
   };
 
-  if (loading) return <p>Ładowanie ustawień...</p>;
+  if (loading) return <p className={styles.loading}>Ładowanie ustawień...</p>;
+
+  const getChunkHint = () => {
+    switch(chunkSize) {
+      case 2: return "2 słowa - szybkie tempo";
+      case 3: return "3 słowa - balans (zalecane)";
+      case 4: return "4 słowa - wolniejsze, bardziej komfortowe";
+      case 5: return "5 słów - bardzo wolne";
+      default: return "";
+    }
+  };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "600px", margin: "auto" }}>
-      <h2>Ustawienia</h2>
+    <div className={styles.settingsContainer}>
+      <h2 className={styles.settingsTitle}>Ustawienia</h2>
 
-      <div style={{ marginTop: "20px" }}>
-        <label>
-          Tryb czytania: <br />
-          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+      <div className={styles.settingGroup}>
+        <label className={styles.label}>
+          Tryb czytania:
+          <select 
+            className={styles.select}
+            value={mode} 
+            onChange={(e) => setMode(e.target.value)}
+          >
             <option value="rsvp">RSVP (jedno słowo)</option>
             <option value="highlight">Podświetlanie w tekście</option>
+            <option value="chunking">Chunking (grupy słów)</option>
           </select>
         </label>
       </div>
 
-      <div>
-        <label>
-          Tempo (ms na słowo): {speed}ms
-          <br />
+      <div className={styles.settingGroup}>
+        <div className={styles.rangeWrapper}>
+          <label className={styles.rangeLabel}>
+            Tempo (ms na słowo): <strong>{speed}ms</strong>
+          </label>
           <input
+            className={styles.rangeInput}
             type="range"
             min="50"
             max="500"
@@ -85,26 +106,53 @@ export default function Settings() {
             value={speed}
             onChange={(e) => setSpeed(parseInt(e.target.value))}
           />
-        </label>
+        </div>
       </div>
 
-      <div style={{ marginTop: "20px" }}>
-        <label>
+      <div className={styles.settingGroup}>
+        <div className={styles.checkboxWrapper}>
           <input
+            id="muteCheckbox"
+            className={styles.checkbox}
             type="checkbox"
             checked={isMuted}
             onChange={(e) => setIsMuted(e.target.checked)}
           />
-          Wycisz kliknięcie
-        </label>
+          <label htmlFor="muteCheckbox" className={styles.checkboxLabel}>
+            Wycisz kliknięcie
+          </label>
+        </div>
       </div>
 
+      {mode === "chunking" && (
+        <div className={styles.modeSettings}>
+          <h4 className={styles.modeSettingsTitle}>Ustawienia Chunking</h4>
+          <div className={styles.rangeWrapper}>
+            <label className={styles.rangeLabel}>
+              Rozmiar chunka (ile słów naraz): <strong>{chunkSize}</strong>
+            </label>
+            <input
+              className={styles.rangeInput}
+              type="range"
+              min="2"
+              max="5"
+              step="1"
+              value={chunkSize}
+              onChange={(e) => setChunkSize(parseInt(e.target.value))}
+            />
+            <div className={styles.hint}>{getChunkHint()}</div>
+          </div>
+        </div>
+      )}
+
       {mode === "highlight" && (
-        <>
-          <div style={{ marginTop: "20px" }}>
-            <label>
-              Szerokość okna (px): <br />
+        <div className={styles.modeSettings}>
+          <h4 className={styles.modeSettingsTitle}>Ustawienia Highlight</h4>
+          <div style={{ marginTop: "15px" }}>
+            <label className={styles.label}>
+              Szerokość okna (px):
               <input
+                className={styles.inputNumber}
                 type="number"
                 min="200"
                 max="1200"
@@ -114,10 +162,11 @@ export default function Settings() {
             </label>
           </div>
 
-          <div style={{ marginTop: "20px" }}>
-            <label>
-              Wysokość okna (px): <br />
+          <div style={{ marginTop: "15px" }}>
+            <label className={styles.label}>
+              Wysokość okna (px):
               <input
+                className={styles.inputNumber}
                 type="number"
                 min="100"
                 max="800"
@@ -126,10 +175,10 @@ export default function Settings() {
               />
             </label>
           </div>
-        </>
+        </div>
       )}
 
-      <button onClick={handleSave} style={{ marginTop: "30px" }}>
+      <button className={styles.saveButton} onClick={handleSave}>
         Zapisz i wróć
       </button>
     </div>

@@ -7,8 +7,8 @@ User = get_user_model()
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height']
-        
+        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height', 'chunk_size']  # DODANE chunk_size
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -35,7 +35,6 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
     word_count = serializers.SerializerMethodField()
     questions = QuestionSerializer(many=True, read_only=True)
 
-
     class Meta:
         model = ReadingExercise
         fields = '__all__'
@@ -57,4 +56,3 @@ class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProgress
         fields = '__all__'
-

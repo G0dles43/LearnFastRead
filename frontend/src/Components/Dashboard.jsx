@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import styles from "./Dashboard.module.css";
 
 export default function Dashboard() {
   const [exercises, setExercises] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const navigate = useNavigate();
-
   const token = localStorage.getItem("access");
 
   useEffect(() => {
@@ -63,78 +63,86 @@ export default function Dashboard() {
     : exercises;
 
   return (
-    <div style={{ padding: "20px" }}>
-      <button
-        onClick={() => {
-          localStorage.clear();
-          navigate("/");
-        }}
-      >
-        Wyloguj
-      </button>
-      <button onClick={() => navigate("/settings")}>⚙️ Ustawienia</button>
-      <button onClick={() => navigate("/create-exercise")}>
-        ➕ Stwórz ćwiczenie
-      </button>
+    <div className={styles.dashboardContainer}>
+      <header className={styles.header}>
+        <h2>Twój Panel</h2>
+        <div className={styles.headerActions}>
+          <button className="button-secondary" onClick={() => navigate("/create-exercise")}>
+            ➕ Stwórz ćwiczenie
+          </button>
+          <button className="button-secondary" onClick={() => navigate("/settings")}>
+            ⚙️ Ustawienia
+          </button>
+          <button
+            className="button-danger"
+            onClick={() => {
+              localStorage.clear();
+              navigate("/");
+            }}
+          >
+            Wyloguj
+          </button>
+        </div>
+      </header>
 
-      <div style={{ marginTop: "10px" }}>
-        <label>
+      <div className={styles.filterBar}>
+        <label className="checkbox-label">
           <input
             type="checkbox"
             checked={showFavoritesOnly}
             onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-            style={{ marginRight: "8px" }}
           />
           Pokaż tylko ulubione
         </label>
       </div>
 
-      <h2 style={{ marginTop: "20px" }}>Lista ćwiczeń</h2>
-      {filteredExercises.map((ex) => (
-        <div
-          key={ex.id}
-          style={{
-            border: "1px solid #ccc",
-            padding: "10px",
-            margin: "10px 0",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <strong>
-            {ex.title} ({ex.word_count} słów)
-          </strong>
-
-          <div>
-            <button
-              style={{ marginRight: "10px" }}
-              onClick={() => navigate(`/training/${ex.id}`)}
-            >
-              Rozpocznij
-            </button>
-            <button onClick={() => toggleFavorite(ex.id)}>
-              {ex.is_favorite ? "⭐" : "☆"}
-            </button>
-            <button
-              style={{ marginLeft: "10px", color: "red" }}
-              onClick={() => deleteExercise(ex.id)}
-            >
-              Usuń
-            </button>
-            <div>
-              {ex.is_public ? (
-                <span style={{ marginLeft: "10px" }}>🌐</span>
-              ) : (
-                <span style={{ marginLeft: "10px" }}>🔒</span>
-              )}
-              {ex.is_ranked && (
-                <span style={{ marginLeft: "5px", color: "green" }}>🏆</span>
-              )}
+      <div className={styles.exerciseList}>
+        {filteredExercises.length > 0 ? (
+          filteredExercises.map((ex) => (
+            <div key={ex.id} className={styles.exerciseCard}>
+              <div className={styles.exerciseInfo}>
+                <strong>{ex.title}</strong>
+                <span>({ex.word_count} słów)</span>
+                <div className={styles.exerciseTags}>
+                  {ex.is_public ? (
+                    <span className={styles.tag}>🌐 Publiczne</span>
+                  ) : (
+                    <span className={styles.tag}>🔒 Prywatne</span>
+                  )}
+                  {ex.is_ranked && (
+                    <span className={`${styles.tag} ${styles.ranked}`}>🏆 Rankingowe</span>
+                  )}
+                </div>
+              </div>
+      
+              <div className={styles.exerciseActions}>
+                <button
+                  className="button-primary"
+                  onClick={() => navigate(`/training/${ex.id}`)}
+                >
+                  Start
+                </button>
+                <button
+                  className={`button-icon ${ex.is_favorite ? styles.favoriteActive : ''}`}
+                  onClick={() => toggleFavorite(ex.id)}
+                  title={ex.is_favorite ? "Usuń z ulubionych" : "Dodaj do ulubionych"}
+                >
+                  {ex.is_favorite ? "⭐" : "☆"}
+                </button>
+                <button
+                  className="button-icon button-danger" // Dodajemy button-danger dla koloru
+                  onClick={() => deleteExercise(ex.id)}
+                  title="Usuń ćwiczenie"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      ))}
+          ))
+        ) : (
+          <p>Nie znaleziono ćwiczeń. Może czas jakieś dodać?</p>
+        )}
+      </div>
     </div>
   );
 }

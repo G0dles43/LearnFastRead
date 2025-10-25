@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import styles from "./Form.module.css";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -24,15 +25,39 @@ export default function Login() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input name="username" onChange={handleChange} placeholder="Username" />
-      <input
-        name="password"
-        type="password"
-        onChange={handleChange}
-        placeholder="Hasło"
-      />
-      <button type="submit">Zaloguj</button>
-    </form>
+    <div className={`container form-container ${styles.formWrapper}`}>
+      <h1>Fast Reader</h1>
+      <h2>Zaloguj się</h2>
+      <p>Witaj z powrotem! Czas poczytać.</p>
+
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <label htmlFor="username">Nazwa użytkownika</label>
+        <input
+          id="username"
+          className="input" // Klasa globalna
+          name="username"
+          onChange={handleChange}
+          placeholder="Wpisz swoją nazwę..."
+        />
+        
+        <label htmlFor="password">Hasło</label>
+        <input
+          id="password"
+          className="input" // Klasa globalna
+          name="password"
+          type="password"
+          onChange={handleChange}
+          placeholder="Wpisz swoje hasło..."
+        />
+        
+        <button type="submit" className="button-primary">
+          Zaloguj
+        </button>
+      </form>
+
+      <p className={styles.switchForm}>
+        Nie masz konta? <Link to="/register">Zarejestruj się</Link>
+      </p>
+    </div>
   );
 }
