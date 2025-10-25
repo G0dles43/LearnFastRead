@@ -7,8 +7,11 @@ import Dashboard from "./Components/Dashboard";
 import TrainingSession from "./Components/TrainingSession";
 import Settings from "./Components/Settings";
 import ExerciseCreator from "./Components/ExerciseCreator";
+import Leaderboard from "./Components/Leaderboard";
+
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+
 
 function App() {
   const api = axios.create({
@@ -39,6 +42,7 @@ function App() {
           <Route path="/training/:id" element={<TrainingSession />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/create-exercise" element={<ExerciseCreator />} />
+          <Route path="/ranking" element={<Leaderboard />} />
         </Routes>
       </BrowserRouter>
     </>

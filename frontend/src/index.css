@@ -81,7 +81,7 @@ a:hover { color: var(--primary-hover); }
   justify-content: center;
   gap: 0.5rem;
   text-decoration: none;
-  background-color: transparent; /* Domyślnie */
+  background-color: blue; /* Domyślnie */
   color: var(--text-primary);
 }
 

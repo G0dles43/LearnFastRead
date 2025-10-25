@@ -7,7 +7,7 @@ User = get_user_model()
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height', 'chunk_size']  # DODANE chunk_size
+        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height', 'chunk_size']
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -27,13 +27,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
-        fields = ['id', 'text', 'correct_answer']
+        fields = ['id', 'text', 'correct_answer', 'question_type', 'option_1', 'option_2', 'option_3', 'option_4']
 
 class ReadingExerciseSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(source='created_by.username')
     created_by_id = serializers.ReadOnlyField(source='created_by.id') 
     word_count = serializers.SerializerMethodField()
-    questions = QuestionSerializer(many=True, read_only=True)
+    questions = QuestionSerializer(many=True, read_only=False, required=False)
 
     class Meta:
         model = ReadingExercise
@@ -51,6 +51,16 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
             if data.get('is_ranked', False):
                 raise serializers.ValidationError("Nie możesz tworzyć ćwiczeń ranked.")
         return data
+    
+    def create(self, validated_data):
+        questions_data = validated_data.pop('questions', [])
+        exercise = ReadingExercise.objects.create(**validated_data)
+        
+        # Tworzenie pytań, jeśli są
+        for question_data in questions_data:
+            Question.objects.create(exercise=exercise, **question_data)
+        
+        return exercise
     
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:

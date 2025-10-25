@@ -47,7 +47,18 @@ class SubmitProgress(generics.CreateAPIView):
         exercise = serializer.validated_data['exercise']
         if not exercise.is_ranked:
             raise serializers.ValidationError("Postęp tylko dla ćwiczeń ranked.")
-        serializer.save()
+        
+        # Zapisz wynik (model automatycznie obsłuży counted_for_ranking)
+        progress = serializer.save()
+        
+        return Response({
+            'wpm': progress.wpm,
+            'accuracy': progress.accuracy,
+            'ranking_points': progress.ranking_points,
+            'counted_for_ranking': progress.counted_for_ranking,
+            'attempt_number': progress.attempt_number,
+            'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
+        })
 
 
 class UserSettingsView(APIView):
@@ -63,7 +74,20 @@ class UserSettingsView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+# NOWY ENDPOINT - Status użytkownika
+class UserStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'username': user.username,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'is_admin': user.is_staff or user.is_superuser
+        })
 
 
 class SearchExercises(APIView):

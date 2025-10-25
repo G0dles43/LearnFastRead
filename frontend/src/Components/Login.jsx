@@ -30,6 +30,9 @@ export default function Login() {
       <h2>Zaloguj się</h2>
       <p>Witaj z powrotem! Czas poczytać.</p>
 
+<       button className="button-secondary" onClick={() => navigate("/")}>
+          ← Powrót 
+        </button>
       <form onSubmit={handleSubmit} className={styles.form}>
         <label htmlFor="username">Nazwa użytkownika</label>
         <input

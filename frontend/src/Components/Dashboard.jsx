@@ -67,6 +67,9 @@ export default function Dashboard() {
       <header className={styles.header}>
         <h2>Twój Panel</h2>
         <div className={styles.headerActions}>
+          <button className="button-secondary" onClick={() => navigate("/ranking")}>
+            Ranking
+          </button>
           <button className="button-secondary" onClick={() => navigate("/create-exercise")}>
             ➕ Stwórz ćwiczenie
           </button>

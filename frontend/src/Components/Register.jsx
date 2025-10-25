@@ -22,7 +22,12 @@ export default function Register() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+
+    <div>
+      <button className="button-secondary" onClick={() => navigate("/")}>
+          ← Powrót 
+        </button>
+        <form onSubmit={handleSubmit}>
       <input name="username" onChange={handleChange} placeholder="Username" />
       <input name="email" onChange={handleChange} placeholder="Email" />
       <input
@@ -33,5 +38,7 @@ export default function Register() {
       />
       <button type="submit">Zarejestruj</button>
     </form>
+    </div>
+    
   );
 }

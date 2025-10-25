@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
@@ -24,7 +24,7 @@ export default function TrainingSession() {
   const [speed, setSpeed] = useState(200);
   const [isMuted, setIsMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [chunkSize, setChunkSize] = useState(3); // Nowe: rozmiar chunka
+  const [chunkSize, setChunkSize] = useState(3);
   const [highlightDimensions, setHighlightDimensions] = useState({
     width: 600,
     height: 300,
@@ -37,6 +37,9 @@ export default function TrainingSession() {
   const [questions, setQuestions] = useState([]);
   const [showQuiz, setShowQuiz] = useState(false);
   const [exercise, setExercise] = useState(null);
+  
+  // NOWE: Status próby rankingowej
+  const [attemptStatus, setAttemptStatus] = useState(null);
 
   // Pobierz ustawienia użytkownika
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function TrainingSession() {
         setSpeed(res.data.speed);
         setIsMuted(res.data.muted);
         setMode(res.data.mode || "rsvp");
-        setChunkSize(res.data.chunk_size || 3); // Pobierz chunk_size
+        setChunkSize(res.data.chunk_size || 3);
         setHighlightDimensions({
           width: res.data.highlight_width || 600,
           height: res.data.highlight_height || 300,
@@ -63,21 +66,23 @@ export default function TrainingSession() {
       });
   }, [token]);
 
-  // Pobierz tekst ćwiczenia
+  // Pobierz tekst ćwiczenia i status próby
   useEffect(() => {
-    async function fetchText() {
+    async function fetchExerciseData() {
       try {
-        const res = await axios.get(
+        // Pobierz ćwiczenie
+        const exerciseRes = await axios.get(
           `http://127.0.0.1:8000/api/exercises/${id}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
 
-        const exercise = res.data;
-        setExercise(exercise);
-        if (exercise) {
-          const cleanText = exercise.text
+        const exerciseData = exerciseRes.data;
+        setExercise(exerciseData);
+        
+        if (exerciseData) {
+          const cleanText = exerciseData.text
             .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
             .replace(/\s+/g, " ")
             .trim();
@@ -88,11 +93,22 @@ export default function TrainingSession() {
           setIndex(0);
           setHasEnded(false);
         }
+        
+        // Jeśli to ćwiczenie rankingowe, sprawdź status próby
+        if (exerciseData.is_ranked) {
+          const statusRes = await axios.get(
+            `http://127.0.0.1:8000/api/exercises/${id}/attempt-status/`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          setAttemptStatus(statusRes.data);
+        }
       } catch (error) {
         console.error("Błąd ładowania ćwiczenia:", error);
       }
     }
-    fetchText();
+    fetchExerciseData();
   }, [id, token]);
 
   // Timer dla postępu czytania
@@ -100,7 +116,6 @@ export default function TrainingSession() {
     if (words.length === 0 || isPaused || hasEnded) return;
 
     if (index < words.length) {
-      // Dla chunking zwiększamy index o chunkSize
       const increment = mode === "chunking" ? chunkSize : 1;
       
       const timer = setTimeout(() => {
@@ -135,16 +150,6 @@ export default function TrainingSession() {
           setShowQuiz(true);
         });
     } else {
-      axios.post(
-        "http://127.0.0.1:8000/api/submit-progress/",
-        {
-          user: userId,
-          exercise: id,
-          wpm,
-          accuracy: 100,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
       alert(`Ćwiczenie ukończone! Prędkość: ${wpm} słów/min`);
       navigate("/dashboard");
     }
@@ -152,7 +157,6 @@ export default function TrainingSession() {
 
   if (words.length === 0) return <p className={styles.loading}>Ładowanie...</p>;
 
-  // Funkcja wyboru komponentu czytania
   const renderReader = () => {
     switch(mode) {
       case "rsvp":
@@ -181,6 +185,30 @@ export default function TrainingSession() {
 
   return (
     <div className={styles.sessionContainer}>
+      {/* Banner o statusie rankingowym */}
+      {exercise?.is_ranked && attemptStatus && !showQuiz && (
+        <div className={`${styles.rankingBanner} ${attemptStatus.can_rank ? styles.canRank : styles.cannotRank}`}>
+          {attemptStatus.can_rank ? (
+            <>
+              <span className={styles.bannerIcon}>🏆</span>
+              <span>{attemptStatus.message}</span>
+            </>
+          ) : (
+            <>
+              <span className={styles.bannerIcon}>📊</span>
+              <span>{attemptStatus.message}</span>
+              {attemptStatus.ranked_result && (
+                <span className={styles.previousScore}>
+                  Twój wynik rankingowy: {attemptStatus.ranked_result.wpm} WPM | 
+                  {attemptStatus.ranked_result.accuracy.toFixed(1)}% | 
+                  {attemptStatus.ranked_result.points} pkt
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      
       <div className={styles.controls}>
         <button className="button-secondary" onClick={() => navigate("/dashboard")}>
           Przerwij
@@ -208,6 +236,7 @@ export default function TrainingSession() {
           userId={userId}
           wpm={Math.round(words.length / ((Date.now() - startTime) / 60000))}
           token={token}
+          attemptStatus={attemptStatus}
           onFinish={() => navigate("/dashboard")}
         />
       ) : (

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import styles from "./Quiz.module.css"; // <-- 1. Importujemy nowy plik CSS
+import styles from "./Quiz.module.css";
 
 export default function Quiz({
   questions,
@@ -8,10 +8,12 @@ export default function Quiz({
   userId,
   wpm,
   token,
+  attemptStatus,
   onFinish,
 }) {
   const [answers, setAnswers] = useState({});
   const [quizScore, setQuizScore] = useState(null);
+  const [rankingResult, setRankingResult] = useState(null);
 
   const handleSubmit = () => {
     let correct = 0;
@@ -38,8 +40,9 @@ export default function Quiz({
         },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      .then(() => {
-        setTimeout(() => onFinish(), 3000); // wróć po 3 sek
+      .then((res) => {
+        setRankingResult(res.data);
+        setTimeout(() => onFinish(), 5000);
       })
       .catch((err) => {
         console.error("Błąd zapisu wyniku quizu", err);
@@ -48,19 +51,19 @@ export default function Quiz({
       });
   };
 
-  // 2. Używamy klas z pliku CSS (className) zamiast style={{...}}
   return (
     <div className={styles.quizContainer}>
       <h2>Quiz - Sprawdź zrozumienie</h2>
       
       {quizScore === null ? (
         <>
-          {questions.map((q) => (
+          {questions.map((q, idx) => (
             <div key={q.id} className={styles.questionBlock}>
-              <p>{q.text}</p>
+              <p className={styles.questionNumber}>Pytanie {idx + 1}/{questions.length}</p>
+              <p className={styles.questionText}>{q.text}</p>
               <input
                 type="text"
-                className="input" // Używamy globalnej klasy "input"
+                className="input"
                 placeholder="Twoja odpowiedź"
                 value={answers[q.id] || ""}
                 onChange={(e) =>
@@ -75,10 +78,62 @@ export default function Quiz({
         </>
       ) : (
         <div className={styles.score}>
-          <p>Twój wynik: {quizScore}%</p>
-          <p>Zanotowano prędkość: {wpm} Sł/min</p>
-          <p style={{ color: "var(--text-secondary)", marginTop: "1rem" }}>
-            Zaraz wrócisz do panelu...
+          <h3>Wyniki:</h3>
+          <div className={styles.scoreDetails}>
+            <p className={styles.scoreItem}>
+              <span className={styles.scoreLabel}>Poprawność:</span>
+              <span className={styles.scoreValue}>{quizScore}%</span>
+            </p>
+            <p className={styles.scoreItem}>
+              <span className={styles.scoreLabel}>Prędkość:</span>
+              <span className={styles.scoreValue}>{wpm} słów/min</span>
+            </p>
+            
+            {rankingResult && (
+              <>
+                {rankingResult.counted_for_ranking ? (
+                  <>
+                    {quizScore >= 60 ? (
+                      <div className={styles.rankingSuccess}>
+                        <p className={styles.rankingTitle}>
+                          🏆 Wynik zaliczony do rankingu!
+                        </p>
+                        <p className={styles.rankingPoints}>
+                          Zdobyte punkty: <strong>{rankingResult.ranking_points}</strong>
+                        </p>
+                        {rankingResult.attempt_number > 1 && (
+                          <p className={styles.rankingNote}>
+                            (Poprawiłeś swój wynik z miesiąca temu!)
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className={styles.rankingFailed}>
+                        <p className={styles.rankingTitle}>
+                          ❌ Wynik poniżej progu (60%)
+                        </p>
+                        <p className={styles.rankingNote}>
+                          Nie zdobyłeś punktów rankingowych. Spróbuj ponownie za miesiąc!
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className={styles.rankingTraining}>
+                    <p className={styles.rankingTitle}>
+                      📊 Trening - wynik nie liczy się do rankingu
+                    </p>
+                    <p className={styles.rankingNote}>
+                      Próba #{rankingResult.attempt_number}. Możesz poprawić wynik rankingowy za miesiąc!
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          
+          <p className={styles.redirectInfo}>
+            Powrót do panelu za chwilę...
           </p>
         </div>
       )}

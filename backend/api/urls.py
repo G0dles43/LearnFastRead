@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import toggle_favorite, QuestionListView, ReadingExerciseDelete,  ReadingExerciseDetail, ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, ReadingExerciseList, SubmitProgress
+from .views import UserStatusView, toggle_favorite, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, ReadingExerciseList, SubmitProgress
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -14,11 +14,12 @@ urlpatterns = [
     path('exercises/create/', ReadingExerciseCreate.as_view(), name='exercise-create'),
     path('exercises/<int:pk>/', ReadingExerciseDetail.as_view(), name='exercise-detail'),
     path('exercises/<int:pk>/delete/', ReadingExerciseDelete.as_view(), name='exercise-delete'),
-    path('exercises/search/', SearchExercises.as_view(), name='exercise-search'),    path('submit-progress/', SubmitProgress.as_view(), name='submit-progress'),    
+    path('exercises/search/', SearchExercises.as_view(), name='exercise-search'),
+    path('submit-progress/', SubmitProgress.as_view(), name='submit-progress'),    
     path('exercises/<int:exercise_id>/questions/', QuestionListView.as_view(), name='exercise-questions'),
 
     path('user/settings/', UserSettingsView.as_view(), name='user-settings'),
+    path('user/status/', UserStatusView.as_view(), name='user-status'),
 
     path('exercises/<int:pk>/favorite/', toggle_favorite, name='exercise-favorite'),
-
 ]
