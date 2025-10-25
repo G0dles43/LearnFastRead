@@ -1,0 +1,46 @@
+.chunkingContainer {
+  font-size: 2.5rem;
+  font-weight: 500;
+  margin: 20px 0;
+  height: 200px;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  padding: 4rem 2rem;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.chunkWrapper {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start; /* ZMIENIONE - wyrównanie do lewej */
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: -150px; 
+}
+
+.chunkWord {
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.chunkWord:not(:last-child)::after {
+  content: '•';
+  margin-left: 1.5rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}

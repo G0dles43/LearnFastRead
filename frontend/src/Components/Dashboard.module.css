@@ -1,0 +1,98 @@
+/* Plik: src/Components/Dashboard.module.css */
+.dashboardContainer {
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap; /* Na mniejszych ekranach przyciski spadną niżej */
+  gap: 1rem;
+}
+
+.headerActions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filterBar {
+  margin-bottom: 1.5rem;
+}
+
+.exerciseList {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.exerciseCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg-surface);
+  padding: 1.5rem;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-fast);
+  flex-wrap: wrap; /* Responsywność na małych ekranach */
+  gap: 1rem;
+}
+
+.exerciseCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--text-secondary);
+}
+
+.exerciseInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exerciseInfo strong {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.exerciseInfo span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.exerciseTags {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--border-radius-sm);
+  background-color: var(--bg-main); /* Ciemniejsze tło */
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.ranked {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.exerciseActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Specjalny styl dla aktywnej gwiazdki */
+.favoriteActive {
+  color: var(--warning) !important;
+}
+.favoriteActive:hover {
+  color: var(--warning) !important;
+}

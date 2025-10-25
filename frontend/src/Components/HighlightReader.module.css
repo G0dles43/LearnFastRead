@@ -1,0 +1,55 @@
+.readerContainer {
+  padding: 20px;
+  font-size: 1.5rem;
+  line-height: 2.2rem;
+  text-align: justify;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  overflow: auto;
+  box-shadow: var(--shadow-md);
+  user-select: none;
+  cursor: default;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  word-wrap: break-word;
+  display: block;
+}
+
+.readerContainer:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.wordWrapper {
+  position: relative;
+  padding: 2px 4px;
+  transition: all 0.3s ease;
+  display: inline;
+}
+
+.word {
+  position: relative;
+  color: var(--text-secondary);
+  font-weight: 400;
+  z-index: 1;
+  transition: color 0.2s ease-out;
+}
+
+.activeWord {
+  color: var(--primary);
+  font-weight: 400;
+  opacity: 1.0;
+}
+
+.activePulse {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--primary);
+  border-radius: 2px;
+  animation: pulse 1.5s infinite;
+}
