@@ -58,19 +58,38 @@ export default function ExerciseCreator() {
   };
 
   const searchExercises = async () => {
-    if (!query) {
-      alert("Wpisz zainteresowania");
-      return;
-    }
-    try {
-      const res = await axios.get(
-        `http://127.0.0.1:8000/api/exercises/search/?query=${query}&limit=${limit}`
-      );
+  if (!query.trim()) {
+    alert("Wpisz zainteresowania");
+    return;
+  }
+  
+  try {
+    setResults([]); // Wyczyść poprzednie wyniki
+    
+    const res = await axios.get(
+      `http://127.0.0.1:8000/api/exercises/search/`,
+      {
+        params: { query, limit },
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+    
+    if (res.data.results && res.data.results.length > 0) {
       setResults(res.data.results);
-    } catch (error) {
+    } else {
+      alert("Nie znaleziono wyników dla tego zapytania");
+    }
+  } catch (error) {
+    console.error("Błąd:", error);
+    if (error.response) {
+      alert(`Błąd: ${error.response.data.error || "Błąd podczas wyszukiwania"}`);
+    } else if (error.request) {
+      alert("Brak połączenia z serwerem. Sprawdź czy backend działa.");
+    } else {
       alert("Błąd podczas wyszukiwania");
     }
-  };
+  }
+};
 
   const addExerciseFromResult = async (title, snippet) => {
     try {

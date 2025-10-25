@@ -70,55 +70,81 @@ class SearchExercises(APIView):
     def get(self, request):
         query = request.GET.get('query', '')
         limit = int(request.GET.get('limit', 500))  
+        
         if not query:
             return Response({"results": []})
 
-        search_url = "https://pl.wikipedia.org/w/api.php"
-        search_params = {
-            'action': 'query',
-            'format': 'json',
-            'list': 'search',
-            'srsearch': query,
-            'srlanguage': 'pl',
-            'utf8': 1,
-            'srlimit': 5,
+      
+        headers = {
+            'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)'  
         }
-        search_response = requests.get(search_url, params=search_params)
-        search_data = search_response.json()
 
-        results = []
-
-        for item in search_data.get('query', {}).get('search', []):
-            pageid = item['pageid']
-            title = item['title']
-
-            extract_url = "https://pl.wikipedia.org/w/api.php"
-            extract_params = {
+        try:
+            search_url = "https://pl.wikipedia.org/w/api.php"
+            search_params = {
                 'action': 'query',
                 'format': 'json',
-                'prop': 'extracts',
-                'explaintext': 1,
-                'pageids': pageid,
+                'list': 'search',
+                'srsearch': query,
                 'utf8': 1,
+                'srlimit': 5,
             }
-            extract_response = requests.get(extract_url, params=extract_params)
-            extract_data = extract_response.json()
+            
+            search_response = requests.get(search_url, params=search_params, headers=headers, timeout=10)
+            search_response.raise_for_status()
+            search_data = search_response.json()
 
-            page = extract_data['query']['pages'].get(str(pageid), {})
-            full_text = page.get('extract', '')
+            results = []
 
-            clean_text = re.sub(r'<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]', '', full_text)
-            clean_text = clean_text.replace('&quot;', '"').replace('&amp;', '&')
-            words = clean_text.strip().split()
-            truncated = " ".join(words[:limit])
+            for item in search_data.get('query', {}).get('search', []):
+                pageid = item['pageid']
+                title = item['title']
 
-            results.append({
-                "title": title,
-                "snippet": truncated,
-            })
+                # Pobierz pełny tekst
+                extract_params = {
+                    'action': 'query',
+                    'format': 'json',
+                    'prop': 'extracts',
+                    'explaintext': 1,
+                    'pageids': pageid,
+                    'utf8': 1,
+                }
+                
+                extract_response = requests.get(search_url, params=extract_params, headers=headers, timeout=10)
+                extract_response.raise_for_status()
+                extract_data = extract_response.json()
 
-        return Response({"results": results})
+                page = extract_data['query']['pages'].get(str(pageid), {})
+                full_text = page.get('extract', '')
 
+                if not full_text:
+                    continue
+
+                # Czyszczenie tekstu
+                clean_text = re.sub(r'\s+', ' ', full_text)
+                clean_text = clean_text.strip()
+                
+                # Obetnij do limitu słów
+                words = clean_text.split()
+                truncated = " ".join(words[:limit])
+
+                results.append({
+                    "title": title,
+                    "snippet": truncated,
+                })
+
+            return Response({"results": results})
+            
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, 
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Nieoczekiwany błąd: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 
