@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import styles from "./ExerciseCreator.module.css";
 
 export default function ExerciseCreator() {
   const [title, setTitle] = useState("");
@@ -8,18 +9,15 @@ export default function ExerciseCreator() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [limit, setLimit] = useState(500);
-
   const [isPublic, setIsPublic] = useState(false);
   const [isRanked, setIsRanked] = useState(false);
   const [questions, setQuestions] = useState([]);
-  
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const token = localStorage.getItem("access");
   const navigate = useNavigate();
 
-  // Pobierz status użytkownika z backendu
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -39,6 +37,63 @@ export default function ExerciseCreator() {
         setLoading(false);
       });
   }, [token, navigate]);
+
+  const getRecommendedQuestions = () => {
+    const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    
+    if (wordCount === 0) return { min: 0, max: 0, recommended: 0 };
+    if (wordCount <= 300) return { min: 3, max: 4, recommended: 3 };
+    if (wordCount <= 500) return { min: 4, max: 5, recommended: 4 };
+    if (wordCount <= 800) return { min: 5, max: 6, recommended: 5 };
+    return { min: 6, max: 7, recommended: 6 };
+  };
+
+  const getQuestionValidation = () => {
+    if (!isRanked) return null;
+    
+    const { min, max, recommended } = getRecommendedQuestions();
+    const currentCount = questions.length;
+    
+    if (text.trim().length === 0) {
+      return {
+        type: "info",
+        message: "Wpisz tekst ćwiczenia, aby zobaczyć zalecaną liczbę pytań"
+      };
+    }
+    
+    if (currentCount === 0) {
+      return {
+        type: "error",
+        message: `Brak pytań! Dodaj przynajmniej ${min} pytania (zalecane: ${recommended})`
+      };
+    }
+    
+    if (currentCount < min) {
+      return {
+        type: "warning",
+        message: `Za mało pytań! Masz ${currentCount}, potrzebujesz minimum ${min}`
+      };
+    }
+    
+    if (currentCount > max) {
+      return {
+        type: "warning",
+        message: `Za dużo pytań! Masz ${currentCount}, zalecane: ${min}-${max} pytań`
+      };
+    }
+    
+    if (currentCount === recommended) {
+      return {
+        type: "success",
+        message: `✅ Idealna liczba pytań! (${currentCount}/${recommended})`
+      };
+    }
+    
+    return {
+      type: "ok",
+      message: `✓ Dobra liczba pytań (${currentCount}). Zalecane: ${recommended}`
+    };
+  };
 
   const addQuestion = () => {
     setQuestions([
@@ -63,10 +118,33 @@ export default function ExerciseCreator() {
       return;
     }
 
-    // Walidacja pytań dla ćwiczeń rankingowych
-    if (isRanked && questions.length === 0) {
-      alert("Ćwiczenia rankingowe muszą mieć przynajmniej jedno pytanie!");
-      return;
+    if (isRanked) {
+      const { min, max } = getRecommendedQuestions();
+      
+      if (questions.length === 0) {
+        alert("Ćwiczenia rankingowe muszą mieć przynajmniej jedno pytanie!");
+        return;
+      }
+      
+      if (questions.length < min) {
+        const confirm = window.confirm(
+          `Masz tylko ${questions.length} pytań, a zalecane minimum to ${min}. Czy na pewno chcesz kontynuować?`
+        );
+        if (!confirm) return;
+      }
+      
+      if (questions.length > max) {
+        const confirm = window.confirm(
+          `Masz ${questions.length} pytań, a zalecane maksimum to ${max}. Czy na pewno chcesz kontynuować?`
+        );
+        if (!confirm) return;
+      }
+      
+      const emptyQuestions = questions.filter(q => !q.text.trim() || !q.correct_answer.trim());
+      if (emptyQuestions.length > 0) {
+        alert("Wszystkie pytania muszą mieć wypełnioną treść i poprawną odpowiedź!");
+        return;
+      }
     }
 
     try {
@@ -149,210 +227,175 @@ export default function ExerciseCreator() {
   };
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: 20 }}>Ładowanie...</div>;
+    return <div className={styles.loading}>Ładowanie...</div>;
   }
 
+  const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const validation = getQuestionValidation();
+
   return (
-    <div style={{ maxWidth: 800, margin: "auto", padding: 20 }}>
-      <button onClick={() => navigate("/dashboard")}>← Powrót do panelu</button>
+    <div className={styles.container}>
+      <button className="button-secondary" onClick={() => navigate("/dashboard")}>
+        ← Powrót do panelu
+      </button>
 
-      <h2>Stwórz własne ćwiczenie</h2>
+      <h2 className={styles.title}>Stwórz własne ćwiczenie</h2>
       
-      <input
-        type="text"
-        placeholder="Tytuł"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        style={{ width: "100%", marginBottom: 10, padding: 8 }}
-      />
+      <div className={styles.formGroup}>
+        <input
+          type="text"
+          className={styles.input}
+          placeholder="Tytuł"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
       
-      <textarea
-        placeholder="Tekst ćwiczenia"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={8}
-        style={{ width: "100%", marginBottom: 10, padding: 8 }}
-      />
+      <div className={styles.formGroup}>
+        <textarea
+          className={styles.textarea}
+          placeholder="Tekst ćwiczenia"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className={styles.wordCount}>
+          Liczba słów: <strong>{wordCount}</strong>
+        </div>
+      </div>
 
-      {/* OPCJE ADMINA */}
       {isAdmin && (
-        <div style={{ 
-          background: "#f0f8ff", 
-          padding: 15, 
-          borderRadius: 8, 
-          marginBottom: 15,
-          border: "2px solid #4a90e2"
-        }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#2c5aa0" }}>
+        <div className={styles.adminSection}>
+          <h3 className={styles.adminTitle}>
             🔐 Opcje Administratora
           </h3>
           
-          <label style={{ display: "block", marginBottom: 10 }}>
+          <label className={styles.checkbox}>
             <input
               type="checkbox"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
             />
-            {" "}Ćwiczenie publiczne (widoczne dla wszystkich)
+            Ćwiczenie publiczne (widoczne dla wszystkich)
           </label>
 
-          <label style={{ display: "block", marginBottom: 10 }}>
+          <label className={styles.checkbox}>
             <input
               type="checkbox"
               checked={isRanked}
               onChange={(e) => setIsRanked(e.target.checked)}
             />
-            {" "}Ćwiczenie rankingowe (z pytaniami)
+            Ćwiczenie rankingowe (z pytaniami)
           </label>
 
-          {/* PYTANIA DLA ĆWICZEŃ RANKINGOWYCH */}
           {isRanked && (
-            <div style={{ marginTop: 15 }}>
-              <h4>Pytania do quizu:</h4>
-              {questions.map((q, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "white",
-                    padding: 10,
-                    marginBottom: 10,
-                    borderRadius: 5,
-                    border: "1px solid #ddd",
-                  }}
+            <div className={styles.questionsSection}>
+              <div className={styles.questionsHeader}>
+                <h4 className={styles.questionsTitle}>Pytania do quizu:</h4>
+                <button
+                  onClick={addQuestion}
+                  className={styles.addQuestionBtn}
                 >
-                  <input
-                    type="text"
-                    placeholder="Treść pytania"
-                    value={q.text}
-                    onChange={(e) => updateQuestion(index, "text", e.target.value)}
-                    style={{ width: "100%", marginBottom: 5, padding: 5 }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Poprawna odpowiedź"
-                    value={q.correct_answer}
-                    onChange={(e) =>
-                      updateQuestion(index, "correct_answer", e.target.value)
-                    }
-                    style={{ width: "100%", marginBottom: 5, padding: 5 }}
-                  />
-                  <button
-                    onClick={() => removeQuestion(index)}
-                    style={{
-                      background: "#e74c3c",
-                      color: "white",
-                      border: "none",
-                      padding: "5px 10px",
-                      cursor: "pointer",
-                      borderRadius: 3,
-                    }}
-                  >
-                    Usuń pytanie
-                  </button>
+                  + Dodaj pytanie
+                </button>
+              </div>
+
+              {validation && (
+                <div className={`${styles.validationBanner} ${styles[`validation${validation.type.charAt(0).toUpperCase() + validation.type.slice(1)}`]}`}>
+                  {validation.message}
                 </div>
-              ))}
-              <button
-                onClick={addQuestion}
-                style={{
-                  background: "#27ae60",
-                  color: "white",
-                  border: "none",
-                  padding: "8px 15px",
-                  cursor: "pointer",
-                  borderRadius: 5,
-                }}
-              >
-                + Dodaj pytanie
-              </button>
+              )}
+
+              {questions.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p>Brak pytań. Kliknij "+ Dodaj pytanie" aby rozpocząć.</p>
+                </div>
+              ) : (
+                questions.map((q, index) => (
+                  <div key={index} className={styles.questionCard}>
+                    <div className={styles.questionNumber}>
+                      Pytanie #{index + 1}
+                    </div>
+                    <input
+                      type="text"
+                      className={`${styles.questionInput} ${!q.text.trim() ? styles.questionInputError : ''}`}
+                      placeholder="Treść pytania (np. Kto jest głównym bohaterem?)"
+                      value={q.text}
+                      onChange={(e) => updateQuestion(index, "text", e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className={`${styles.questionInput} ${!q.correct_answer.trim() ? styles.questionInputError : ''}`}
+                      placeholder="Poprawna odpowiedź"
+                      value={q.correct_answer}
+                      onChange={(e) => updateQuestion(index, "correct_answer", e.target.value)}
+                    />
+                    {(!q.text.trim() || !q.correct_answer.trim()) && (
+                      <div className={styles.questionError}>
+                        To pytanie nie jest kompletne
+                      </div>
+                    )}
+                    <button
+                      onClick={() => removeQuestion(index)}
+                      className={styles.removeQuestionBtn}
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
       )}
 
-      <button
-        onClick={createExercise}
-        style={{
-          background: "#4a90e2",
-          color: "white",
-          padding: "10px 20px",
-          border: "none",
-          borderRadius: 5,
-          cursor: "pointer",
-          fontSize: 16,
-        }}
-      >
+      <button onClick={createExercise} className={styles.submitButton}>
         Dodaj ćwiczenie
       </button>
 
-      <hr style={{ margin: "30px 0" }} />
+      <hr className={styles.divider} />
 
-      {/* WYSZUKIWANIE WIKIPEDII */}
-      <h2>Znajdź teksty z Wikipedii</h2>
-      <label>
-        Długość tekstu: {limit} słów
+      <div className={styles.wikiSection}>
+        <h2 className={styles.wikiTitle}>Znajdź teksty z Wikipedii</h2>
+        <label className={styles.rangeLabel}>
+          Długość tekstu: {limit} słów
+          <input
+            type="range"
+            className={styles.rangeInput}
+            min={100}
+            max={500}
+            step={10}
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+          />
+        </label>
         <input
-          type="range"
-          min={100}
-          max={500}
-          step={10}
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
-          style={{ width: "100%", marginBottom: 10 }}
+          type="text"
+          className={styles.searchInput}
+          placeholder="Np. Marvel, matematyka, historia Polski"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
         />
-      </label>
-      <input
-        type="text"
-        placeholder="Np. Marvel, matematyka, historia Polski"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        style={{ width: "100%", marginBottom: 10, padding: 8 }}
-      />
-      <button
-        onClick={searchExercises}
-        style={{
-          background: "#27ae60",
-          color: "white",
-          padding: "10px 20px",
-          border: "none",
-          borderRadius: 5,
-          cursor: "pointer",
-        }}
-      >
-        Szukaj
-      </button>
+        <button onClick={searchExercises} className={styles.searchButton}>
+          Szukaj
+        </button>
 
-      <ul style={{ marginTop: 20, listStyle: "none", padding: 0 }}>
-        {results.map((item, i) => (
-          <li
-            key={i}
-            style={{
-              marginBottom: 20,
-              padding: 15,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              background: "#fafafa",
-            }}
-          >
-            <strong style={{ fontSize: 18 }}>{item.title}</strong>
-            <p style={{ marginTop: 10, color: "#555" }}>
-              {item.snippet.substring(0, 200)}...
-            </p>
-            <button
-              onClick={() => addExerciseFromResult(item.title, item.snippet)}
-              style={{
-                background: "#3498db",
-                color: "white",
-                padding: "8px 15px",
-                border: "none",
-                borderRadius: 5,
-                cursor: "pointer",
-              }}
-            >
-              Dodaj jako ćwiczenie
-            </button>
-          </li>
-        ))}
-      </ul>
+        <ul className={styles.resultsList}>
+          {results.map((item, i) => (
+            <li key={i} className={styles.resultItem}>
+              <div className={styles.resultTitle}>{item.title}</div>
+              <p className={styles.resultSnippet}>
+                {item.snippet.substring(0, 200)}...
+              </p>
+              <button
+                onClick={() => addExerciseFromResult(item.title, item.snippet)}
+                className={styles.addResultButton}
+              >
+                Dodaj jako ćwiczenie
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
