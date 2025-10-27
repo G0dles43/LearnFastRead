@@ -34,14 +34,24 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
     created_by_id = serializers.ReadOnlyField(source='created_by.id') 
     word_count = serializers.SerializerMethodField()
     questions = QuestionSerializer(many=True, read_only=False, required=False)
+    is_favorite = serializers.SerializerMethodField()  # ZMIENIONE - teraz to metoda
 
     class Meta:
         model = ReadingExercise
         fields = '__all__'
-        read_only_fields = ('created_by', 'created_by_id')
+        read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
     def get_word_count(self, obj):
         return len(obj.text.split())
+    
+    def get_is_favorite(self, obj):
+        """
+        Sprawdź czy aktualny użytkownik ma to ćwiczenie w ulubionych
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return request.user in obj.favorited_by.all()
+        return False
     
     def validate(self, data):
         user = self.context['request'].user

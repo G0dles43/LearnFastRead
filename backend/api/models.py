@@ -29,7 +29,11 @@ class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    is_favorite = models.BooleanField(default=False)
+    favorited_by = models.ManyToManyField(
+        CustomUser, 
+        related_name='favorite_exercises', 
+        blank=True
+    )
     is_public = models.BooleanField(default=False)
     is_ranked = models.BooleanField(default=False)
     created_by = models.ForeignKey(

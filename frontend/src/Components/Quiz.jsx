@@ -14,8 +14,14 @@ export default function Quiz({
   const [answers, setAnswers] = useState({});
   const [quizScore, setQuizScore] = useState(null);
   const [rankingResult, setRankingResult] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    // Oblicz wynik
     let correct = 0;
     questions.forEach((q) => {
       if (
@@ -41,13 +47,22 @@ export default function Quiz({
         { headers: { Authorization: `Bearer ${token}` } }
       )
       .then((res) => {
+        console.log("Backend response:", res.data);
         setRankingResult(res.data);
         setTimeout(() => onFinish(), 5000);
       })
       .catch((err) => {
         console.error("Błąd zapisu wyniku quizu", err);
-        alert("Błąd zapisu wyniku, ale quiz został sprawdzony.");
+        if (err.response) {
+          console.error("Error details:", err.response.data);
+          alert(`Błąd: ${err.response.data.error || "Nie udało się zapisać wyniku"}`);
+        } else {
+          alert("Błąd zapisu wyniku, ale quiz został sprawdzony.");
+        }
         setTimeout(() => onFinish(), 3000);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
   };
 
@@ -72,8 +87,12 @@ export default function Quiz({
               />
             </div>
           ))}
-          <button onClick={handleSubmit} className="button-primary">
-            Sprawdź odpowiedzi
+          <button 
+            onClick={handleSubmit} 
+            className="button-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Zapisywanie..." : "Sprawdź odpowiedzi"}
           </button>
         </>
       ) : (
@@ -103,7 +122,7 @@ export default function Quiz({
                         </p>
                         {rankingResult.attempt_number > 1 && (
                           <p className={styles.rankingNote}>
-                            (Poprawiłeś swój wynik z miesiąca temu!)
+                            (Próba #{rankingResult.attempt_number} - poprawiłeś wynik!)
                           </p>
                         )}
                       </div>

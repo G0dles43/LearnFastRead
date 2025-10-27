@@ -17,30 +17,39 @@ export default function HighlightReader({
     wordRefs.current = [];
   }, [text]);
 
+  // TEN BLOK ZOSTAŁ ZMODYFIKOWANY
   useEffect(() => {
     if (!containerRef.current || wordRefs.current.length === 0) return;
     const activeWordRef = wordRefs.current[currentIndex];
     const container = containerRef.current;
+
     if (activeWordRef && container) {
       const wordRect = activeWordRef.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
+
+      // 1. Obliczamy pozycję słowa względem kontenera
       const relativeTop = wordRect.top - containerRect.top + container.scrollTop;
-      const relativeLeft = wordRect.left - containerRect.left + container.scrollLeft;
-      const targetScrollTop = relativeTop - containerRect.height / 2 + wordRect.height / 2;
-      const targetScrollLeft = relativeLeft - containerRect.width / 2 + wordRect.width / 2;
+
+      // 2. Obliczamy docelowy scroll, aby słowo było idealnie na środku
+      //    (Odejmujemy połowę wysokości kontenera i dodajemy połowę wysokości słowa)
+      const targetScrollTop =
+        relativeTop - containerRect.height / 2 + wordRect.height / 2;
+
+      // 3. Zawsze płynnie przewijaj do wyśrodkowanej pozycji
+      //    (Usunęliśmy warunek 'if (isAboveView || isBelowView)')
       container.scrollTo({
         top: targetScrollTop,
-        left: targetScrollLeft,
-        behavior: "smooth",
+        left: 0, // Zawsze blokuj pozycję poziomą na 0
+        behavior: "smooth", // <-- TO DAJE EFEKT PŁYNNEGO SCROLLA
       });
     }
-  }, [currentIndex]);
+  }, [currentIndex]); // Ten effect odpala się przy każdej zmianie słowa
 
   return (
     <div
       ref={containerRef}
-      className={styles.readerContainer} 
-      style={{ width: `${width}px`, height: `${height}px` }} 
+      className={styles.readerContainer}
+      style={{ width: `${width}px`, height: `${height}px` }}
       tabIndex={0}
     >
       {words.map((word, index) => {
@@ -49,13 +58,16 @@ export default function HighlightReader({
           <span
             key={index}
             ref={(el) => (wordRefs.current[index] = el)}
-            className={`${styles.wordWrapper} ${isActive ? styles.activeWrapper : ''}`}
+            className={`${styles.wordWrapper} ${
+              isActive ? styles.activeWrapper : ""
+            }`}
           >
             {isActive && <span className={styles.activePulse} />}
-            <span className={`${styles.word} ${isActive ? styles.activeWord : ''}`}>
+            <span
+              className={`${styles.word} ${isActive ? styles.activeWord : ""}`}
+            >
               {word}
-            </span>
-            {' '}
+            </span>{" "}
           </span>
         );
       })}

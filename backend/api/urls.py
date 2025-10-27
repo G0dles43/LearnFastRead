@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserStatusView, toggle_favorite, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, ReadingExerciseList, SubmitProgress
+from .views import UserStatusView, toggle_favorite, LeaderboardView, MyStatsView, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, ReadingExerciseList, SubmitProgress
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -22,4 +22,7 @@ urlpatterns = [
     path('user/status/', UserStatusView.as_view(), name='user-status'),
 
     path('exercises/<int:pk>/favorite/', toggle_favorite, name='exercise-favorite'),
+
+    path('ranking/leaderboard/', LeaderboardView.as_view(), name='ranking-leaderboard'),
+    path('ranking/my-stats/', MyStatsView.as_view(), name='ranking-my-stats'),
 ]

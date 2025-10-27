@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import ReadingExercise, Question
+from .models import ReadingExercise, Question, UserProgress
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +11,11 @@ from rest_framework import status, serializers
 from .serializers import QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
+from django.db.models import F, Window
+from django.db.models.functions import Rank
+from .models import CustomUser
+from django.utils import timezone
+from datetime import timedelta
 
 User = get_user_model()
 
@@ -43,10 +48,17 @@ class SubmitProgress(generics.CreateAPIView):
     serializer_class = UserProgressSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
         exercise = serializer.validated_data['exercise']
+        
         if not exercise.is_ranked:
-            raise serializers.ValidationError("Postęp tylko dla ćwiczeń ranked.")
+            return Response(
+                {"error": "Postęp tylko dla ćwiczeń ranked."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Zapisz wynik (model automatycznie obsłuży counted_for_ranking)
         progress = serializer.save()
@@ -58,7 +70,7 @@ class SubmitProgress(generics.CreateAPIView):
             'counted_for_ranking': progress.counted_for_ranking,
             'attempt_number': progress.attempt_number,
             'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
-        })
+        }, status=status.HTTP_201_CREATED)
 
 
 class UserSettingsView(APIView):
@@ -76,7 +88,6 @@ class UserSettingsView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# NOWY ENDPOINT - Status użytkownika
 class UserStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -98,7 +109,6 @@ class SearchExercises(APIView):
         if not query:
             return Response({"results": []})
 
-      
         headers = {
             'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)'  
         }
@@ -124,7 +134,6 @@ class SearchExercises(APIView):
                 pageid = item['pageid']
                 title = item['title']
 
-                # Pobierz pełny tekst
                 extract_params = {
                     'action': 'query',
                     'format': 'json',
@@ -144,11 +153,9 @@ class SearchExercises(APIView):
                 if not full_text:
                     continue
 
-                # Czyszczenie tekstu
                 clean_text = re.sub(r'\s+', ' ', full_text)
                 clean_text = clean_text.strip()
                 
-                # Obetnij do limitu słów
                 words = clean_text.split()
                 truncated = " ".join(words[:limit])
 
@@ -171,7 +178,6 @@ class SearchExercises(APIView):
             )
 
 
-
 class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
@@ -182,12 +188,20 @@ class ReadingExerciseDetail(generics.RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def toggle_favorite(request, pk):
     try:
-        exercise = ReadingExercise.objects.get(pk=pk, created_by=request.user)
-        exercise.is_favorite = not exercise.is_favorite
-        exercise.save()
-        return Response({"is_favorite": exercise.is_favorite})
+        exercise = ReadingExercise.objects.get(pk=pk)
+        
+        if request.user in exercise.favorited_by.all():
+            exercise.favorited_by.remove(request.user)
+            is_favorite = False
+        else:
+            exercise.favorited_by.add(request.user)
+            is_favorite = True
+        
+        return Response({"is_favorite": is_favorite})
+        
     except ReadingExercise.DoesNotExist:
         return Response({"error": "Nie znaleziono ćwiczenia"}, status=404)
+
     
 class QuestionListView(generics.ListAPIView):
     serializer_class = QuestionSerializer
@@ -196,3 +210,159 @@ class QuestionListView(generics.ListAPIView):
     def get_queryset(self):
         exercise_id = self.kwargs['exercise_id']
         return Question.objects.filter(exercise_id=exercise_id)
+
+
+class LeaderboardView(APIView):
+    """
+    Zwraca globalną tabelę wyników.
+    Dane są pobierane bezpośrednio z modelu CustomUser, 
+    gdzie są aktualizowane przez UserProgress.save().
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # 1. Użyj Window function (funkcji okna), aby dodać ranking
+        ranked_users_query = CustomUser.objects.annotate(
+            # Stwórz ranking na podstawie punktów (malejąco)
+            rank=Window(
+                expression=Rank(),
+                order_by=F('total_ranking_points').desc()
+            )
+        ).filter(
+            # 2. Pokaż tylko użytkowników, którzy mają jakiekolwiek punkty
+            total_ranking_points__gt=0
+        ).order_by(
+            # 3. Posortuj listę według rankingu
+            'rank'
+        ).values(
+            # 4. Wybierz tylko te pola, które są potrzebne
+            'rank',
+            'username',
+            'total_ranking_points',
+            'average_wpm',
+            'average_accuracy',
+            'ranking_exercises_completed'
+        )
+
+        # Formatowanie danych dla frontendu
+        leaderboard_data = []
+        for user_data in ranked_users_query:
+            leaderboard_data.append({
+                'rank': user_data['rank'],
+                'username': user_data['username'],
+                'total_points': user_data['total_ranking_points'],
+                # Zaokrąglenie dla ładniejszego wyświetlania
+                'average_wpm': round(user_data['average_wpm']),
+                'average_accuracy': round(user_data['average_accuracy'], 1),
+                'exercises_completed': user_data['ranking_exercises_completed'],
+            })
+
+        return Response({"leaderboard": leaderboard_data})
+
+
+# NOWY LUB ZASTĘPCZY WIDOK DLA STATYSTYK UŻYTKOWNIKA
+class MyStatsView(APIView):
+    """
+    Zwraca szczegółowe statystyki zalogowanego użytkownika
+    oraz jego ostatnie próby rankingowe.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # 1. Znajdź pozycję użytkownika w rankingu
+        # (Używamy podobnej logiki co w LeaderboardView)
+        user_rank_data = CustomUser.objects.annotate(
+            rank=Window(
+                expression=Rank(),
+                order_by=F('total_ranking_points').desc()
+            )
+        ).filter(
+            id=user.id
+        ).values('rank', 'total_ranking_points').first()
+
+        user_rank = user_rank_data['rank'] if user_rank_data else 0
+        
+        # Jeśli użytkownik nie ma punktów, jego pozycja jest 'N/A' lub 0
+        if user_rank_data and user_rank_data['total_ranking_points'] == 0:
+             user_rank = "N/A" # Lub 0, zależy jak chcesz to pokazać
+
+        # 2. Pobierz ostatnie 10 prób rankingowych
+        recent_results_query = UserProgress.objects.filter(
+            user=user,
+            counted_for_ranking=True
+        ).order_by('-completed_at')[:10]
+
+        recent_results_data = []
+        for result in recent_results_query:
+            recent_results_data.append({
+                'exercise_title': result.exercise.title,
+                'completed_at': result.completed_at,
+                'wpm': result.wpm,
+                'accuracy': result.accuracy,
+                'points': result.ranking_points
+            })
+
+        # 3. Złóż odpowiedź
+        stats = {
+            'rank': user_rank,
+            'total_points': user.total_ranking_points,
+            'average_wpm': round(user.average_wpm),
+            'average_accuracy': round(user.average_accuracy, 1),
+            'exercises_completed': user.ranking_exercises_completed,
+            'recent_results': recent_results_data
+        }
+
+        return Response(stats)
+
+
+class ExerciseAttemptStatusView(APIView):
+    """
+    Sprawdź czy użytkownik może zdobyć punkty rankingowe dla danego ćwiczenia
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, exercise_id):
+        user = request.user
+        
+        try:
+            exercise = ReadingExercise.objects.get(pk=exercise_id)
+        except ReadingExercise.DoesNotExist:
+            return Response(
+                {"error": "Ćwiczenie nie istnieje"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not exercise.is_ranked:
+            return Response({
+                "can_rank": False,
+                "message": "To ćwiczenie nie jest rankingowe"
+            })
+
+        # Sprawdź ostatni wynik rankingowy
+        one_month_ago = timezone.now() - timedelta(days=30)
+        last_ranked = UserProgress.objects.filter(
+            user=user,
+            exercise=exercise,
+            counted_for_ranking=True,
+            completed_at__gte=one_month_ago
+        ).first()
+
+        if last_ranked:
+            days_left = 30 - (timezone.now() - last_ranked.completed_at).days
+            return Response({
+                "can_rank": False,
+                "message": f"Możesz poprawić wynik rankingowy za {days_left} dni",
+                "ranked_result": {
+                    "wpm": last_ranked.wpm,
+                    "accuracy": last_ranked.accuracy,
+                    "points": last_ranked.ranking_points,
+                    "completed_at": last_ranked.completed_at.isoformat()
+                }
+            })
+
+        return Response({
+            "can_rank": True,
+            "message": "Ten wynik będzie liczony do rankingu!"
+        })
