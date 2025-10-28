@@ -111,16 +111,18 @@ export default function TrainingSession() {
     fetchExerciseData();
   }, [id, token]);
 
-  // Timer dla postępu czytania
   useEffect(() => {
     if (words.length === 0 || isPaused || hasEnded) return;
 
     if (index < words.length) {
       const increment = mode === "chunking" ? chunkSize : 1;
       
+      const delay = (mode === "chunking") ? (speed * chunkSize) : speed;
+
+           
       const timer = setTimeout(() => {
         setIndex((prev) => Math.min(prev + increment, words.length));
-      }, speed);
+      }, delay); 
 
       if (!isMuted) {
         const sound = new Audio("/click.mp3");

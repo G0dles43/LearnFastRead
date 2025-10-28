@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import ReadingExercise, UserProgress, Question
+from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement
 
 User = get_user_model()
 
@@ -32,18 +32,22 @@ class QuestionSerializer(serializers.ModelSerializer):
 class ReadingExerciseSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(source='created_by.username')
     created_by_id = serializers.ReadOnlyField(source='created_by.id') 
-    word_count = serializers.SerializerMethodField()
-    questions = QuestionSerializer(many=True, read_only=False, required=False)
-    is_favorite = serializers.SerializerMethodField()  # ZMIENIONE - teraz to metoda
+    
+    word_count = serializers.IntegerField(read_only=True) 
+    
+    questions = QuestionSerializer(many=True, read_only=True, required=False)
+    is_favorite = serializers.SerializerMethodField()
+    created_by_is_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = ReadingExercise
-        fields = '__all__'
+        fields = ['id', 'title', 'text', 'created_at', 'is_public', 'is_ranked', 
+                  'created_by', 'created_by_id', 'word_count', 'questions', 
+                  'is_favorite', 'created_by_is_admin']
         read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
-    def get_word_count(self, obj):
-        return len(obj.text.split())
-    
+
+
     def get_is_favorite(self, obj):
         """
         Sprawdź czy aktualny użytkownik ma to ćwiczenie w ulubionych
@@ -52,6 +56,12 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return request.user in obj.favorited_by.all()
         return False
+    
+    def get_created_by_is_admin(self, obj):
+        """Sprawdza, czy twórca ćwiczenia jest adminem."""
+        if obj.created_by:
+            return obj.created_by.is_staff 
+        return False 
     
     def validate(self, data):
         user = self.context['request'].user
@@ -63,12 +73,16 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        questions_data = validated_data.pop('questions', [])
+        questions_data = self.context['request'].data.get('questions', []) 
+        validated_data.pop('questions', None) 
+        
+        validated_data.pop('favorited_by', None)      
+
         exercise = ReadingExercise.objects.create(**validated_data)
         
-        # Tworzenie pytań, jeśli są
-        for question_data in questions_data:
-            Question.objects.create(exercise=exercise, **question_data)
+        if questions_data:
+            for question_data in questions_data:
+                Question.objects.create(exercise=exercise, **question_data)
         
         return exercise
     
@@ -76,3 +90,15 @@ class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProgress
         fields = '__all__'
+
+class AchievementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Achievement
+        fields = ['slug', 'title', 'description', 'icon_name']
+
+class UserAchievementSerializer(serializers.ModelSerializer):
+    achievement = AchievementSerializer(read_only=True)
+    
+    class Meta:
+        model = UserAchievement
+        fields = ['achievement', 'unlocked_at']

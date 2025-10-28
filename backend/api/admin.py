@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Question, ReadingExercise, UserProgress, CustomUser
+from .models import UserAchievement, Achievement, Question, ReadingExercise, UserProgress, CustomUser
 
 class QuestionInline(admin.TabularInline):
     model = Question
@@ -15,3 +15,12 @@ class ReadingExerciseAdmin(admin.ModelAdmin):
 
 admin.site.register(CustomUser)
 admin.site.register(UserProgress)
+
+@admin.register(Achievement)
+class AchievementAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'title', 'description', 'icon_name')
+
+@admin.register(UserAchievement)
+class UserAchievementAdmin(admin.ModelAdmin):
+    list_display = ('user', 'achievement', 'unlocked_at')
+    list_filter = ('achievement',)

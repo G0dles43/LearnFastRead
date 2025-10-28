@@ -95,6 +95,15 @@ export default function ExerciseCreator() {
     };
   };
 
+  const handleRankedChange = (e) => {
+    const newRankedValue = e.target.checked;
+    setIsRanked(newRankedValue);
+    
+    if (newRankedValue) {
+      setIsPublic(true);
+    } 
+  };
+
   const addQuestion = () => {
     setQuestions([
       ...questions,
@@ -268,24 +277,27 @@ export default function ExerciseCreator() {
           <h3 className={styles.adminTitle}>
             🔐 Opcje Administratora
           </h3>
-          
-          <label className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            Ćwiczenie publiczne (widoczne dla wszystkich)
-          </label>
 
           <label className={styles.checkbox}>
             <input
               type="checkbox"
               checked={isRanked}
-              onChange={(e) => setIsRanked(e.target.checked)}
+              onChange={handleRankedChange}           
             />
             Ćwiczenie rankingowe (z pytaniami)
           </label>
+
+          <label className={styles.checkbox}>
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              disabled={isRanked} 
+            />
+            Ćwiczenie publiczne (widoczne dla wszystkich) 
+            {isRanked && <span className={styles.hint}>(Rankingowe musi być publiczne)</span>}
+          </label>
+
 
           {isRanked && (
             <div className={styles.questionsSection}>

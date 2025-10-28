@@ -2,15 +2,17 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import ReadingExercise, Question, UserProgress
+from .models import ReadingExercise, Question, UserProgress, UserAchievement
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, serializers
-from .serializers import QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from .services import get_today_challenge
+from .serializers import UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
+from django.db.models import Q
 from django.db.models import F, Window
 from django.db.models.functions import Rank
 from .models import CustomUser
@@ -24,8 +26,57 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
 class ReadingExerciseList(generics.ListAPIView):
-    queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Zwraca listę ćwiczeń z uwzględnieniem filtrowania i sortowania.
+        Admin widzi wszystko. Zwykły user widzi publiczne + swoje prywatne.
+        """
+        user = self.request.user
+
+        if user.is_staff:
+            queryset = ReadingExercise.objects.all()
+        else:
+            queryset = ReadingExercise.objects.filter(
+                Q(is_public=True) | Q(created_by=user)
+            )
+
+        show_only_my_private = self.request.query_params.get('my_private')
+        if show_only_my_private == 'true':
+             queryset = ReadingExercise.objects.filter(created_by=user, is_public=False)
+
+        show_favorites = self.request.query_params.get('favorites')
+        if show_favorites == 'true':
+            queryset = queryset.filter(favorited_by=user) # Filtruj wg relacji M2M
+
+        show_ranked = self.request.query_params.get('ranked')
+        if show_ranked == 'true':
+            queryset = queryset.filter(is_ranked=True)
+
+        show_public = self.request.query_params.get('public')
+        if show_public == 'true':
+            queryset = queryset.filter(is_public=True)
+
+
+        sort_by = self.request.query_params.get('sort_by')
+
+        if sort_by == 'title_asc':
+            queryset = queryset.order_by('title')
+        elif sort_by == 'title_desc':
+            queryset = queryset.order_by('-title')
+        elif sort_by == 'word_count_asc':
+             queryset = queryset.order_by('word_count')
+        elif sort_by == 'word_count_desc':
+            queryset = queryset.order_by('-word_count')
+        elif sort_by == 'created_at_asc':
+            queryset = queryset.order_by('created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        # Zwróć unikalne wyniki (ważne przy filtrowaniu M2M)
+        return queryset.distinct()
 
 class ReadingExerciseCreate(generics.CreateAPIView):
     queryset = ReadingExercise.objects.all()
@@ -260,7 +311,6 @@ class LeaderboardView(APIView):
         return Response({"leaderboard": leaderboard_data})
 
 
-# NOWY LUB ZASTĘPCZY WIDOK DLA STATYSTYK UŻYTKOWNIKA
 class MyStatsView(APIView):
     """
     Zwraca szczegółowe statystyki zalogowanego użytkownika
@@ -271,8 +321,6 @@ class MyStatsView(APIView):
     def get(self, request):
         user = request.user
 
-        # 1. Znajdź pozycję użytkownika w rankingu
-        # (Używamy podobnej logiki co w LeaderboardView)
         user_rank_data = CustomUser.objects.annotate(
             rank=Window(
                 expression=Rank(),
@@ -284,11 +332,9 @@ class MyStatsView(APIView):
 
         user_rank = user_rank_data['rank'] if user_rank_data else 0
         
-        # Jeśli użytkownik nie ma punktów, jego pozycja jest 'N/A' lub 0
         if user_rank_data and user_rank_data['total_ranking_points'] == 0:
              user_rank = "N/A" # Lub 0, zależy jak chcesz to pokazać
 
-        # 2. Pobierz ostatnie 10 prób rankingowych
         recent_results_query = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True
@@ -304,7 +350,6 @@ class MyStatsView(APIView):
                 'points': result.ranking_points
             })
 
-        # 3. Złóż odpowiedź
         stats = {
             'rank': user_rank,
             'total_points': user.total_ranking_points,
@@ -316,6 +361,17 @@ class MyStatsView(APIView):
 
         return Response(stats)
 
+class UserAchievementsView(APIView):
+    """
+    Zwraca listę osiągnięć zdobytych przez zalogowanego użytkownika.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        unlocked_achievements = UserAchievement.objects.filter(user=user).order_by('-unlocked_at')
+        serializer = UserAchievementSerializer(unlocked_achievements, many=True)
+        return Response(serializer.data)
 
 class ExerciseAttemptStatusView(APIView):
     """
@@ -366,3 +422,61 @@ class ExerciseAttemptStatusView(APIView):
             "can_rank": True,
             "message": "Ten wynik będzie liczony do rankingu!"
         })
+    
+class TodayChallengeView(APIView):
+    """
+    Zwraca dzisiejsze wyzwanie (ćwiczenie) oraz status,
+    czy zalogowany użytkownik już je dzisiaj ukończył.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        challenge = get_today_challenge()
+        
+        if not challenge:
+            return Response({"error": "Brak dostępnych wyzwań dnia."}, status=status.HTTP_404_NOT_FOUND)
+            
+        today_start = timezone.now().replace(hour=0, minute=0, second=0)
+        today_end = timezone.now().replace(hour=23, minute=59, second=59)
+        
+        is_completed = UserProgress.objects.filter(
+            user=request.user,
+            exercise=challenge,
+            completed_daily_challenge=True, 
+            completed_at__gte=today_start,
+            completed_at__lte=today_end
+        ).exists()
+        
+        serializer = ReadingExerciseSerializer(challenge, context={'request': request})
+        challenge_data = serializer.data  
+
+        return Response({
+            "challenge": challenge_data,
+            "is_completed": is_completed
+        })   
+    
+class UserProgressHistoryView(APIView):
+    """
+    Zwraca historię wszystkich wyników rankingowych użytkownika
+    dla potrzeb wykresów.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Pobierz wszystkie rekordy rankingowe, posortowane od najstarszego
+        # Wybieramy tylko potrzebne pola za pomocą .values() dla wydajności
+        progress_history = UserProgress.objects.filter(
+            user=user,
+            counted_for_ranking=True # Tylko wyniki rankingowe
+        ).order_by('completed_at').values( # Sortuj od najstarszego
+            'completed_at', 
+            'wpm', 
+            'accuracy'
+        )
+
+        # Konwertuj QuerySet na listę słowników (gotowe do JSON)
+        data = list(progress_history)
+
+        return Response(data)

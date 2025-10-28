@@ -3,11 +3,22 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import styles from "./Settings.module.css";
 
+const msToWpm = (ms) => {
+  if (!ms || ms <= 0) return 100; 
+  return Math.round(60000 / ms); 
+};
+
+const wpmToMs = (wpm) => {
+  if (!wpm || wpm <= 0) return 600; 
+  return Math.round(60000 / wpm);
+};
+
 export default function Settings() {
   const navigate = useNavigate();
   const token = localStorage.getItem("access");
 
-  const [speed, setSpeed] = useState(200);
+  const [wpm, setWpm] = useState(300); 
+  
   const [isMuted, setIsMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState("rsvp");
@@ -16,13 +27,18 @@ export default function Settings() {
   const [chunkSize, setChunkSize] = useState(3);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+        setLoading(false); 
+        return;
+    }
     axios
       .get("http://127.0.0.1:8000/api/user/settings/", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        setSpeed(res.data.speed);
+        const speedMs = res.data.speed;
+        setWpm(msToWpm(speedMs)); 
+        
         setIsMuted(res.data.muted);
         setMode(res.data.mode);
         setHighlightWidth(res.data.highlight_width || 600);
@@ -31,17 +47,21 @@ export default function Settings() {
         setLoading(false);
       })
       .catch(() => {
-        setLoading(false);
+        console.error("Błąd pobierania ustawień, używam domyślnych.");
+        setLoading(false); 
       });
   }, [token]);
 
   const handleSave = () => {
     if (!token) return alert("Nie jesteś zalogowany!");
+
+    const speedMsToSend = wpmToMs(wpm);
+
     axios
       .patch(
         "http://127.0.0.1:8000/api/user/settings/",
         {
-          speed,
+          speed: speedMsToSend, 
           muted: isMuted,
           mode,
           highlight_width: highlightWidth,
@@ -80,9 +100,9 @@ export default function Settings() {
       <div className={styles.settingGroup}>
         <label className={styles.label}>
           Tryb czytania:
-          <select 
+          <select
             className={styles.select}
-            value={mode} 
+            value={mode}
             onChange={(e) => setMode(e.target.value)}
           >
             <option value="rsvp">RSVP (jedno słowo)</option>
@@ -95,16 +115,16 @@ export default function Settings() {
       <div className={styles.settingGroup}>
         <div className={styles.rangeWrapper}>
           <label className={styles.rangeLabel}>
-            Tempo (ms na słowo): <strong>{speed}ms</strong>
+            Tempo (Słowa na minutę): <strong>{wpm} WPM</strong>
           </label>
           <input
             className={styles.rangeInput}
             type="range"
-            min="50"
-            max="500"
-            step="10"
-            value={speed}
-            onChange={(e) => setSpeed(parseInt(e.target.value))}
+            min="20" 
+            max="1000" 
+            step="10"  
+            value={wpm}
+            onChange={(e) => setWpm(parseInt(e.target.value))}
           />
         </div>
       </div>
@@ -126,55 +146,55 @@ export default function Settings() {
 
       {mode === "chunking" && (
         <div className={styles.modeSettings}>
-          <h4 className={styles.modeSettingsTitle}>Ustawienia Chunking</h4>
-          <div className={styles.rangeWrapper}>
-            <label className={styles.rangeLabel}>
-              Rozmiar chunka (ile słów naraz): <strong>{chunkSize}</strong>
-            </label>
-            <input
-              className={styles.rangeInput}
-              type="range"
-              min="2"
-              max="5"
-              step="1"
-              value={chunkSize}
-              onChange={(e) => setChunkSize(parseInt(e.target.value))}
-            />
-            <div className={styles.hint}>{getChunkHint()}</div>
-          </div>
+            <h4 className={styles.modeSettingsTitle}>Ustawienia Chunking</h4>
+            <div className={styles.rangeWrapper}>
+                <label className={styles.rangeLabel}>
+                Rozmiar chunka (ile słów naraz): <strong>{chunkSize}</strong>
+                </label>
+                <input
+                className={styles.rangeInput}
+                type="range"
+                min="2"
+                max="5"
+                step="1"
+                value={chunkSize}
+                onChange={(e) => setChunkSize(parseInt(e.target.value))}
+                />
+                <div className={styles.hint}>{getChunkHint()}</div>
+            </div>
         </div>
       )}
 
       {mode === "highlight" && (
         <div className={styles.modeSettings}>
-          <h4 className={styles.modeSettingsTitle}>Ustawienia Highlight</h4>
-          <div style={{ marginTop: "15px" }}>
-            <label className={styles.label}>
-              Szerokość okna (px):
-              <input
-                className={styles.inputNumber}
-                type="number"
-                min="200"
-                max="1200"
-                value={highlightWidth}
-                onChange={(e) => setHighlightWidth(parseInt(e.target.value))}
-              />
-            </label>
-          </div>
-
-          <div style={{ marginTop: "15px" }}>
-            <label className={styles.label}>
-              Wysokość okna (px):
-              <input
-                className={styles.inputNumber}
-                type="number"
-                min="100"
-                max="800"
-                value={highlightHeight}
-                onChange={(e) => setHighlightHeight(parseInt(e.target.value))}
-              />
-            </label>
-          </div>
+            {/* ... (kod bez zmian) ... */}
+            <h4 className={styles.modeSettingsTitle}>Ustawienia Highlight</h4>
+            <div style={{ marginTop: "15px" }}>
+                <label className={styles.label}>
+                Szerokość okna (px):
+                <input
+                    className={styles.inputNumber}
+                    type="number"
+                    min="200"
+                    max="1200"
+                    value={highlightWidth}
+                    onChange={(e) => setHighlightWidth(parseInt(e.target.value))}
+                />
+                </label>
+            </div>
+            <div style={{ marginTop: "15px" }}>
+                <label className={styles.label}>
+                Wysokość okna (px):
+                <input
+                    className={styles.inputNumber}
+                    type="number"
+                    min="100"
+                    max="800"
+                    value={highlightHeight}
+                    onChange={(e) => setHighlightHeight(parseInt(e.target.value))}
+                />
+                </label>
+            </div>
         </div>
       )}
 
