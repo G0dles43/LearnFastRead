@@ -427,3 +427,44 @@
     padding: 15px;
   }
 }
+/* Plik: src/Components/ExerciseCreator.module.css */
+/* ... (wszystkie istniejące style) ... */
+
+/* Nowe style */
+.formGroupInline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem; /* Taki sam margines jak inne inputy */
+}
+
+.inlineLabel {
+  margin-bottom: 0; /* Usuń domyślny margines labelki */
+  white-space: nowrap; /* Zapobiegaj łamaniu etykiety */
+}
+
+.inputNumberSmall {
+  /* Podobny do .input, ale mniejszy */
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem; /* Mniejszy padding */
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  color: var(--text-primary);
+  transition: var(--transition-fast);
+  width: 80px; /* Stała, mała szerokość */
+  text-align: center;
+}
+.inputNumberSmall:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0,122,255, 0.3);
+}
+
+
+.wikiSection > p {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 1rem;
+}

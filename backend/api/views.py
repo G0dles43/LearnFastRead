@@ -12,8 +12,10 @@ from .services import get_today_challenge
 from .serializers import UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
-from django.db.models import Q
-from django.db.models import F, Window
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from django.db.models import F, Window, Q
 from django.db.models.functions import Rank
 from .models import CustomUser
 from django.utils import timezone
@@ -153,81 +155,82 @@ class UserStatusView(APIView):
 
 
 class SearchExercises(APIView):
+    permission_classes = [IsAuthenticated] # Wymagaj logowania do szukania
+
     def get(self, request):
-        query = request.GET.get('query', '')
-        limit = int(request.GET.get('limit', 500))  
-        
+        query = self.request.query_params.get('query', '')
+        num_results = 5 # Liczba wyników z Wikipedii (niezależna od limitu słów)
+
+        # Pobierz limit słów z frontendu
+        try:
+             limit = int(self.request.query_params.get('limit', 300)) # Domyślnie 300
+        except ValueError:
+             limit = 300
+
         if not query:
             return Response({"results": []})
 
-        headers = {
-            'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)'  
-        }
+        headers = { 'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)' } 
 
         try:
             search_url = "https://pl.wikipedia.org/w/api.php"
             search_params = {
-                'action': 'query',
-                'format': 'json',
-                'list': 'search',
-                'srsearch': query,
-                'utf8': 1,
-                'srlimit': 5,
+                'action': 'query', 'format': 'json', 'list': 'search',
+                'srsearch': query, 'utf8': 1, 'srlimit': num_results,
             }
-            
-            search_response = requests.get(search_url, params=search_params, headers=headers, timeout=10)
+
+            search_response = requests.get(search_url, params=search_params, headers=headers, timeout=15)
             search_response.raise_for_status()
             search_data = search_response.json()
 
             results = []
+            wiki_search_results = search_data.get('query', {}).get('search', [])
 
-            for item in search_data.get('query', {}).get('search', []):
+            if not wiki_search_results:
+                 return Response({"results": [], "message": "Wikipedia nie znalazła wyników dla tego zapytania."})
+
+            for item in wiki_search_results:
                 pageid = item['pageid']
                 title = item['title']
 
                 extract_params = {
-                    'action': 'query',
-                    'format': 'json',
-                    'prop': 'extracts',
-                    'explaintext': 1,
-                    'pageids': pageid,
-                    'utf8': 1,
+                    'action': 'query', 'format': 'json', 'prop': 'extracts',
+                    'explaintext': 1, 'pageids': pageid, 'utf8': 1,
                 }
-                
-                extract_response = requests.get(search_url, params=extract_params, headers=headers, timeout=10)
+
+                extract_response = requests.get(search_url, params=extract_params, headers=headers, timeout=15)
                 extract_response.raise_for_status()
                 extract_data = extract_response.json()
 
-                page = extract_data['query']['pages'].get(str(pageid), {})
+                page = extract_data.get('query', {}).get('pages', {}).get(str(pageid), {})
                 full_text = page.get('extract', '')
 
-                if not full_text:
-                    continue
+                if not full_text: continue
 
-                clean_text = re.sub(r'\s+', ' ', full_text)
-                clean_text = clean_text.strip()
-                
-                words = clean_text.split()
-                truncated = " ".join(words[:limit])
+                # Czyszczenie tekstu
+                cleaned_text = re.sub(r'[^\w\sąćęłńóśźżĄĆĘŁŃÓŚŹŻ]', '', full_text, flags=re.UNICODE)
+                cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+
+                if not cleaned_text: continue
+
+                # Ucinanie tekstu do 'limit' słów
+                words = cleaned_text.split()
+                truncated_text = " ".join(words[:limit])
 
                 results.append({
                     "title": title,
-                    "snippet": truncated,
+                    "snippet": truncated_text, # Zwracamy ucięty tekst
                 })
 
             return Response({"results": results})
-            
-        except requests.exceptions.RequestException as e:
-            return Response(
-                {"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, 
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-        except Exception as e:
-            return Response(
-                {"error": f"Nieoczekiwany błąd: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
+        except requests.exceptions.Timeout:
+             return Response({"error": "Przekroczono limit czasu połączenia z Wikipedią."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as e:
+            print(f"Błąd w SearchExercises: {e}") # Tymczasowo dla debugowania
+            return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()
