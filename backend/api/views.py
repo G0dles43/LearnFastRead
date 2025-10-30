@@ -155,25 +155,33 @@ class UserStatusView(APIView):
 
 
 class SearchExercises(APIView):
-    permission_classes = [IsAuthenticated] # Wymagaj logowania do szukania
+    permission_classes = [IsAuthenticated] 
 
     def get(self, request):
         query = self.request.query_params.get('query', '')
-        num_results = 5 # Liczba wyników z Wikipedii (niezależna od limitu słów)
-
-        # Pobierz limit słów z frontendu
-        try:
-             limit = int(self.request.query_params.get('limit', 300)) # Domyślnie 300
-        except ValueError:
-             limit = 300
 
         if not query:
             return Response({"results": []})
+
+        try:
+            num_results = int(self.request.query_params.get('num_results', 5))
+            if not 1 <= num_results <= 20:
+                num_results = 5
+        except ValueError:
+            num_results = 5 
+
+        try:
+            limit = int(self.request.query_params.get('limit', 300))
+            if not 100 <= limit <= 1000: 
+                limit = 300
+        except ValueError:
+            limit = 300
 
         headers = { 'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)' } 
 
         try:
             search_url = "https://pl.wikipedia.org/w/api.php"
+            
             search_params = {
                 'action': 'query', 'format': 'json', 'list': 'search',
                 'srsearch': query, 'utf8': 1, 'srlimit': num_results,
@@ -207,19 +215,17 @@ class SearchExercises(APIView):
 
                 if not full_text: continue
 
-                # Czyszczenie tekstu
                 cleaned_text = re.sub(r'[^\w\sąćęłńóśźżĄĆĘŁŃÓŚŹŻ]', '', full_text, flags=re.UNICODE)
                 cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
 
                 if not cleaned_text: continue
 
-                # Ucinanie tekstu do 'limit' słów
                 words = cleaned_text.split()
                 truncated_text = " ".join(words[:limit])
 
                 results.append({
                     "title": title,
-                    "snippet": truncated_text, # Zwracamy ucięty tekst
+                    "snippet": truncated_text, 
                 })
 
             return Response({"results": results})
@@ -227,10 +233,11 @@ class SearchExercises(APIView):
         except requests.exceptions.Timeout:
              return Response({"error": "Przekroczono limit czasu połączenia z Wikipedią."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
         except requests.exceptions.RequestException as e:
-            return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+             return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
-            print(f"Błąd w SearchExercises: {e}") # Tymczasowo dla debugowania
-            return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+             print(f"Błąd w SearchExercises: {e}") # Tymczasowo dla debugowania
+             return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()

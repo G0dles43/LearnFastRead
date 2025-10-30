@@ -42,7 +42,7 @@
 
 .activeWord {
   color: var(--primary);
-/* DODANE - wyróżnienie aktywnego słowa */
+  /* DODANE - wyróżnienie aktywnego słowa */
   opacity: 1.0;
 }
 

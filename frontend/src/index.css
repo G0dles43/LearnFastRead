@@ -197,24 +197,21 @@ hr {
 }
 
 ::-webkit-scrollbar {
-  width: 12px; /* Szerokość paska */
-  height: 12px; /* Wysokość (dla paska poziomego, jeśli się pojawi) */
+  width: 12px; 
+  height: 12px; 
 }
 
-/* Tło (ścieżka) paska przewijania */
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface); /* Ciemne tło ścieżki */
-  border-radius: 6px; /* Zaokrąglenie */
+  background: var(--bg-surface); 
+  border-radius: 6px; 
 }
 
-/* Kursor (uchwyt) paska przewijania */
 ::-webkit-scrollbar-thumb {
-  background-color: var(--border-color); /* Ciemniejszy kolor uchwytu */
-  border-radius: 6px; /* Zaokrąglenie */
-  border: 3px solid var(--bg-surface); /* Dodaje "obramowanie" w kolorze tła */
+  background-color: var(--border-color); 
+  border-radius: 6px; 
+  border: 3px solid var(--bg-surface); 
 }
 
-/* Kursor przy najechaniu */
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-secondary); /* Lekko jaśniejszy przy najechaniu */
+  background-color: var(--text-secondary); 
 }

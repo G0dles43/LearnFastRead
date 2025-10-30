@@ -152,49 +152,84 @@ export default function ExerciseCreator({ api }) {
             <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} disabled={isRanked}/> Ćwiczenie publiczne (widoczne dla wszystkich)
             {isRanked && <span className={styles.hint}>(Rankingowe musi być publiczne)</span>}
           </label>
-          {isRanked && ( <div className={styles.questionsSection}> {/* ... (sekcja pytań bez zmian) ... */} </div> )}
+          {isRanked && (
+            <div className={styles.questionsSection}>
+                <div className={styles.questionsHeader}>
+                    <h4 className={styles.questionsTitle}>Pytania (Wymagane do rankingu)</h4>
+                    <button onClick={addQuestion} className={styles.addQuestionBtn}>+ Dodaj pytanie</button>
+                </div>
+
+                {validation && (
+                    <div className={`${styles.validationBanner} ${styles[validation.type === 'error' ? 'validationError' :
+                                                                        validation.type === 'warning' ? 'validationWarning' :
+                                                                        validation.type === 'success' ? 'validationSuccess' :
+                                                                        validation.type === 'ok' ? 'validationOk' : 'validationInfo']}`}>
+                        {validation.message}
+                    </div>
+                )}
+
+                {questions.length === 0 && !validation && (
+                    <div className={styles.emptyState}>
+                        <p>Brak pytań. Kliknij "+ Dodaj pytanie", aby rozpocząć.</p>
+                    </div>
+                )}
+
+                {questions.map((q, index) => (
+                    <div key={index} className={styles.questionCard}>
+                        <div className={styles.questionNumber}>PYTANIE {index + 1}</div>
+                        <input
+                            type="text"
+                            placeholder="Treść pytania"
+                            value={q.text}
+                            onChange={(e) => updateQuestion(index, 'text', e.target.value)}
+                            className={styles.questionInput}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Poprawna odpowiedź"
+                            value={q.correct_answer}
+                            onChange={(e) => updateQuestion(index, 'correct_answer', e.target.value)}
+                            className={styles.questionInput}
+                        />
+                        <button onClick={() => removeQuestion(index)} className={styles.removeQuestionBtn}>Usuń</button>
+                    </div>
+                ))}
+            </div>
+        )}
         </div>
       )}
 
       <button onClick={createExercise} className={styles.submitButton}>Dodaj ćwiczenie</button>
       <hr className={styles.divider} />
 
-      {/* --- SEKCJA WIKIPEDIA (Z SUWAKIEM LIMIT) --- */}
       <div className={styles.wikiSection}>
         <h2 className={styles.wikiTitle}>Znajdź teksty z Wikipedii</h2>
 
-        {/* Suwak Limit Słów */}
         <label className={styles.rangeLabel}>
           Maksymalna długość tekstu: {limit} słów
           <input type="range" className={styles.rangeInput} min={100} max={1000} step={50} value={limit} onChange={(e) => setLimit(Number(e.target.value))} disabled={searchLoading}/>
         </label>
 
-        {/* Input zapytania */}
         <input type="text" className={styles.searchInput} placeholder="Wpisz hasło (np. Szybkie czytanie, Polska)" value={query} onChange={(e) => setQuery(e.target.value)} disabled={searchLoading}/>
 
-        {/* Input liczby wyników */}
         <div className={styles.formGroupInline}>
             <label htmlFor="numResultsInput" className={styles.inlineLabel}>Liczba wyników:</label>
             <input id="numResultsInput" type="number" className={styles.inputNumberSmall} min={1} max={20} value={numResults} onChange={(e) => setNumResults(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))} disabled={searchLoading}/>
         </div>
 
-        {/* Przycisk Szukaj */}
         <button onClick={searchExercises} className={styles.searchButton} disabled={searchLoading}>
           {searchLoading ? 'Szukam...' : 'Szukaj w Wikipedii'}
         </button>
 
-        {/* Ładowanie i Wyniki */}
         {searchLoading && <p>Ładowanie wyników z Wikipedii...</p>}
         {!searchLoading && results.length > 0 && (
             <ul className={styles.resultsList}>
             {results.map((item, i) => (
                 <li key={i} className={styles.resultItem}>
                 <div className={styles.resultTitle}>{item.title}</div>
-                {/* Podgląd - snippet */}
                 <p className={styles.resultSnippet}>
                     {item.snippet.substring(0, 250)}{item.snippet.length > 250 ? '...' : ''}
                 </p>
-                {/* Przycisk dodaje ucięty 'snippet' */}
                 <button
                     onClick={() => addExerciseFromResult(item.title, item.snippet)}
                     className={styles.addResultButton}
@@ -206,7 +241,6 @@ export default function ExerciseCreator({ api }) {
             </ul>
         )}
       </div>
-      {/* --- KONIEC SEKCJI WIKIPEDIA --- */}
     </div>
   );
 }

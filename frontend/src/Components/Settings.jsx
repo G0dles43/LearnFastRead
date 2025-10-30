@@ -14,7 +14,6 @@ const wpmToMs = (wpm) => {
   return Math.round(60000 / wpm);
 };
 
-// Stałe dla zakresów wymiarów Highlight
 const HIGHLIGHT_WIDTH_MIN = 200;
 const HIGHLIGHT_WIDTH_MAX = 1200;
 const HIGHLIGHT_HEIGHT_MIN = 100;
