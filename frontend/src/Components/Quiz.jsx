@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import axios from "axios";
-import styles from "./Quiz.module.css";
 
 export default function Quiz({
   questions,
@@ -21,7 +20,6 @@ export default function Quiz({
     
     setIsSubmitting(true);
     
-    // Oblicz wynik
     let correct = 0;
     questions.forEach((q) => {
       if (
@@ -34,7 +32,6 @@ export default function Quiz({
     const acc = Math.round((correct / questions.length) * 100);
     setQuizScore(acc);
 
-    // Zapisz wynik do backendu
     axios
       .post(
         "http://127.0.0.1:8000/api/submit-progress/",
@@ -67,95 +64,238 @@ export default function Quiz({
   };
 
   return (
-    <div className={styles.quizContainer}>
-      <h2>Quiz - Sprawdź zrozumienie</h2>
-      
-      {quizScore === null ? (
-        <>
-          {questions.map((q, idx) => (
-            <div key={q.id} className={styles.questionBlock}>
-              <p className={styles.questionNumber}>Pytanie {idx + 1}/{questions.length}</p>
-              <p className={styles.questionText}>{q.text}</p>
-              <input
-                type="text"
-                className="input"
-                placeholder="Twoja odpowiedź"
-                value={answers[q.id] || ""}
-                onChange={(e) =>
-                  setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                }
-              />
-            </div>
-          ))}
-          <button 
-            onClick={handleSubmit} 
-            className="button-primary"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Zapisywanie..." : "Sprawdź odpowiedzi"}
-          </button>
-        </>
-      ) : (
-        <div className={styles.score}>
-          <h3>Wyniki:</h3>
-          <div className={styles.scoreDetails}>
-            <p className={styles.scoreItem}>
-              <span className={styles.scoreLabel}>Poprawność:</span>
-              <span className={styles.scoreValue}>{quizScore}%</span>
-            </p>
-            <p className={styles.scoreItem}>
-              <span className={styles.scoreLabel}>Prędkość:</span>
-              <span className={styles.scoreValue}>{wpm} słów/min</span>
-            </p>
-            
-            {rankingResult && (
-              <>
-                {rankingResult.counted_for_ranking ? (
-                  <>
-                    {quizScore >= 60 ? (
-                      <div className={styles.rankingSuccess}>
-                        <p className={styles.rankingTitle}>
-                          🏆 Wynik zaliczony do rankingu!
-                        </p>
-                        <p className={styles.rankingPoints}>
-                          Zdobyte punkty: <strong>{rankingResult.ranking_points}</strong>
-                        </p>
-                        {rankingResult.attempt_number > 1 && (
-                          <p className={styles.rankingNote}>
-                            (Próba #{rankingResult.attempt_number} - poprawiłeś wynik!)
+    <div style={{
+      maxWidth: '800px',
+      margin: '0 auto',
+      padding: '2rem'
+    }}>
+      <div className="card card-elevated">
+        <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
+          Quiz - Sprawdź zrozumienie
+        </h2>
+        
+        {quizScore === null ? (
+          <>
+            {questions.map((q, idx) => (
+              <div
+                key={q.id}
+                className="card"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '2px solid var(--border)',
+                  padding: '2rem',
+                  marginBottom: '1.5rem',
+                  transition: 'var(--transition)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <p style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.75rem'
+                }}>
+                  Pytanie {idx + 1}/{questions.length}
+                </p>
+                <p style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginBottom: '1rem'
+                }}>
+                  {q.text}
+                </p>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Twoja odpowiedź..."
+                  value={answers[q.id] || ""}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+            <button 
+              onClick={handleSubmit} 
+              className="btn btn-primary btn-lg"
+              disabled={isSubmitting}
+              style={{ width: '100%' }}
+            >
+              {isSubmitting ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
+                  <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
+                  <span>Zapisywanie...</span>
+                </div>
+              ) : (
+                'Sprawdź odpowiedzi'
+              )}
+            </button>
+          </>
+        ) : (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.05))',
+            border: '2px solid var(--primary)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '3rem',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '2rem' }}>
+              Wyniki:
+            </h3>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+              margin: '2rem 0'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem',
+                background: 'var(--bg-surface)',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Poprawność:
+                </span>
+                <span style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                  color: 'var(--primary)'
+                }}>
+                  {quizScore}%
+                </span>
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem',
+                background: 'var(--bg-surface)',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Prędkość:
+                </span>
+                <span style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                  color: 'var(--primary)'
+                }}>
+                  {wpm} słów/min
+                </span>
+              </div>
+              
+              {rankingResult && (
+                <>
+                  {rankingResult.counted_for_ranking ? (
+                    <>
+                      {quizScore >= 60 ? (
+                        <div style={{
+                          padding: '1.5rem',
+                          borderRadius: 'var(--radius-lg)',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          border: '2px solid var(--success)',
+                          marginTop: '1.5rem'
+                        }}>
+                          <p style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 700,
+                            marginBottom: '0.5rem'
+                          }}>
+                            🏆 Wynik zaliczony do rankingu!
                           </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className={styles.rankingFailed}>
-                        <p className={styles.rankingTitle}>
-                          ❌ Wynik poniżej progu (60%)
-                        </p>
-                        <p className={styles.rankingNote}>
-                          Nie zdobyłeś punktów rankingowych. Spróbuj ponownie za miesiąc!
-                        </p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className={styles.rankingTraining}>
-                    <p className={styles.rankingTitle}>
-                      📊 Trening - wynik nie liczy się do rankingu
-                    </p>
-                    <p className={styles.rankingNote}>
-                      Próba #{rankingResult.attempt_number}. Możesz poprawić wynik rankingowy za miesiąc!
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
+                          <p style={{
+                            fontSize: '1.5rem',
+                            fontWeight: 700,
+                            color: 'var(--success)'
+                          }}>
+                            Zdobyte punkty: <strong>{rankingResult.ranking_points}</strong>
+                          </p>
+                          {rankingResult.attempt_number > 1 && (
+                            <p style={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.95rem',
+                              marginTop: '0.5rem'
+                            }}>
+                              (Próba #{rankingResult.attempt_number} - poprawiłeś wynik!)
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{
+                          padding: '1.5rem',
+                          borderRadius: 'var(--radius-lg)',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '2px solid var(--danger)',
+                          marginTop: '1.5rem'
+                        }}>
+                          <p style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 700,
+                            marginBottom: '0.5rem'
+                          }}>
+                            ❌ Wynik poniżej progu (60%)
+                          </p>
+                          <p style={{
+                            color: 'var(--text-secondary)',
+                            fontSize: '0.95rem',
+                            marginTop: '0.5rem'
+                          }}>
+                            Nie zdobyłeś punktów rankingowych. Spróbuj ponownie za miesiąc!
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{
+                      padding: '1.5rem',
+                      borderRadius: 'var(--radius-lg)',
+                      background: 'rgba(99, 102, 241, 0.1)',
+                      border: '2px solid var(--primary)',
+                      marginTop: '1.5rem'
+                    }}>
+                      <p style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 700,
+                        marginBottom: '0.5rem'
+                      }}>
+                        📊 Trening - wynik nie liczy się do rankingu
+                      </p>
+                      <p style={{
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.95rem',
+                        marginTop: '0.5rem'
+                      }}>
+                        Próba #{rankingResult.attempt_number}. Możesz poprawić wynik rankingowy za miesiąc!
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            
+            <p style={{
+              marginTop: '2rem',
+              color: 'var(--text-secondary)',
+              fontStyle: 'italic'
+            }}>
+              Powrót do panelu za chwilę...
+            </p>
           </div>
-          
-          <p className={styles.redirectInfo}>
-            Powrót do panelu za chwilę...
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

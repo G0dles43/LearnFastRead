@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 User = get_user_model()
 
@@ -24,6 +26,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        token['username'] = user.username
+        token['user_id'] = user.id
+        
+        return token
+    
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question

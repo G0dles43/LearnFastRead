@@ -1,14 +1,13 @@
 from django.urls import path
 from .views import UserProgressHistoryView, TodayChallengeView, UserAchievementsView, UserStatusView, toggle_favorite, LeaderboardView, MyStatsView, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, ReadingExerciseList, SubmitProgress
+from .views import MyTokenObtainPairView  
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
-    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('login/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     path('exercises/', ReadingExerciseList.as_view(), name='exercise-list'),
     path('exercises/create/', ReadingExerciseCreate.as_view(), name='exercise-create'),
