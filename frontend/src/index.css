@@ -1,217 +1,137 @@
-/* Plik: src/index.css */
+/* src/index.css */
 
-/* 1. Definicja zmiennych (paleta kolorów) */
-:root {
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-main text-text-primary font-sans;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Tło dla całej strony */
+    background-image: linear-gradient(rgba(18, 18, 18, 0.92), rgba(18, 18, 18, 0.92)), url('/3.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+
+  /* USUNIĘTE OGRANICZENIE SZEROKOŚCI */
+  #root {
+    @apply w-full min-h-screen;
+    /* Usuń max-w-xl i centrowanie - to ograniczało szerokość */
+  }
+
+  h1, h2, h3, h4 {
+    @apply mb-4 font-semibold;
+    line-height: 1.25;
+  }
+
+  h1 { @apply text-4xl; }
+  h2 { @apply text-3xl text-primary; }
+  h3 { @apply text-2xl; }
   
-  /* Kolory tła */
-  --bg-main: #121212;      /* Główne tło */
-  --bg-surface: #1e1e1e;  /* Tło dla kart, inputów */
-  --bg-surface-hover: #2a2a2a;
-
-  /* Kolory tekstu */
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
+  p { 
+    @apply mb-4 text-text-secondary;
+  }
   
-  /* Kolory akcentów */
-  --primary: #007aff;        /* Niebieski (np. Apple) */
-  --primary-hover: #0056b3;
-  --danger: #ff3b30;         /* Czerwony */
-  --danger-hover: #c70000;
-  --warning: #ffcc00;        /* Żółty (dla gwiazdki) */
-  
-  /* Inne */
-  --border-color: #333333;
-  --border-radius-sm: 4px;
-  --border-radius-md: 8px;
-  
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.2);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
-  --transition-fast: all 0.2s ease-out;
+  a { 
+    @apply text-primary no-underline transition-colors duration-200;
+  }
+  a:hover { 
+    @apply text-primary-hover;
+  }
+
+  /* Scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #333333;
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: #1e1e1e;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #a0a0a0;
+  }
 }
 
-/* 2. Globalny reset i style body */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply font-medium px-6 py-3 rounded-md cursor-pointer transition-all duration-200 
+           inline-flex items-center justify-center gap-2 text-base border-0;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-hover;
+  }
+  .btn-secondary {
+    @apply bg-transparent text-primary border-2 border-primary 
+           hover:bg-primary hover:text-white py-[10px];
+  }
+  .btn-danger {
+    @apply bg-danger text-white hover:bg-danger-hover;
+  }
+  .btn-icon {
+    @apply bg-transparent p-2 text-xl text-text-secondary border-0
+           hover:text-text-primary hover:bg-background-surface-hover rounded-md;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 bg-background-surface border border-border rounded-md 
+           text-text-primary transition-all duration-200 mb-4 font-sans text-base
+           focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30;
+  }
+  textarea.input {
+    @apply resize-y min-h-[100px];
+  }
+  select.input {
+    @apply cursor-pointer;
+  }
+  input[type="checkbox"] {
+    @apply w-5 h-5 cursor-pointer accent-primary;
+  }
+
+  /* Labels */
+  label {
+    @apply block font-medium mb-2 text-text-secondary text-left;
+  }
+
+  /* Containers */
+  .container-main {
+    @apply w-full max-w-4xl mx-auto my-8 p-8 bg-background-surface rounded-md shadow-md;
+  }
+  .form-container {
+    @apply w-full max-w-lg p-8 bg-background-surface rounded-md shadow-md text-center;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-background-surface p-6 rounded-md border border-border shadow-sm
+           transition-all duration-200 hover:shadow-md hover:border-text-secondary;
+  }
+
+  /* Dividers */
+  hr {
+    @apply border-0 border-t border-border my-8;
+  }
 }
 
-body {
-  font-family: var(--font-family);
-  background-color: var(--bg-main);
-  color: var(--text-primary);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  width: 100%;
-}
-
-/* 3. Typografia */
-h1, h2, h3, h4 {
-  margin-bottom: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; color: var(--primary); }
-h3 { font-size: 1.5rem; }
-p { margin-bottom: 1rem; color: var(--text-secondary); }
-a { color: var(--primary); text-decoration: none; transition: var(--transition-fast); }
-a:hover { color: var(--primary-hover); }
-
-/* 4. Globalne klasy użytkowe (Buttons) */
-.button, button {
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: var(--border-radius-md);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-decoration: none;
-  background-color: blue; /* Domyślnie */
-  color: var(--text-primary);
-}
-
-.button-primary {
-  background-color: var(--primary);
-  color: white;
-}
-.button-primary:hover {
-  background-color: var(--primary-hover);
-}
-
-
-.button-secondary {
-  background-color: transparent;     
-  color: var(--primary);            
-  border: 2px solid var(--primary); 
-  padding: 0.65rem 1.5rem; 
-}
-.button-secondary:hover {
-  background-color: var(--primary);     
-  color: white;                       
-  border-color: var(--primary);
-}
-
-.button-danger {
-  background-color: var(--danger);
-  color: white;
-}
-.button-danger:hover {
-  background-color: var(--danger-hover);
-}
-
-/* Przycisk-ikona, bez tła */
-.button-icon {
-  background: transparent;
-  padding: 0.5rem;
-  font-size: 1.25rem;
-  color: var(--text-secondary);
-  border: none;
-}
-.button-icon:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-surface-hover);
-}
-
-/* 5. Globalne klasy użytkowe (Forms) */
-.input, input[type="text"], input[type="password"], input[type="email"], input[type="number"], textarea, select {
-  font-family: inherit;
-  font-size: 1rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-md);
-  color: var(--text-primary);
-  transition: var(--transition-fast);
-  margin-bottom: 1rem;
-}
-
-input:focus, textarea:focus, select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0,122,255, 0.3);
-}
-
-textarea {
-  resize: vertical;
-  min-height: 100px;
-}
-
-label {
-  display: block;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: var(--text-secondary);
-  text-align: left;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  cursor: pointer;
-  color: var(--text-primary);
-  text-align: left;
-}
-.checkbox-label input[type="checkbox"] {
-  width: auto;
-  margin-bottom: 0;
-}
-
-/* 6. Globalne klasy (Layout) */
-.container {
-  width: 100%;
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: var(--bg-surface);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-md);
-}
-
-.form-container {
-  max-width: 500px;
-  text-align: center;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: 2rem 0;
-}
-
-::-webkit-scrollbar {
-  width: 12px; 
-  height: 12px; 
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-surface); 
-  border-radius: 6px; 
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: var(--border-color); 
-  border-radius: 6px; 
-  border: 3px solid var(--bg-surface); 
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-secondary); 
+@layer utilities {
+  .bg-hero-pattern {
+    background-image: url('/3.png');
+    @apply bg-cover bg-center bg-no-repeat;
+  }
+  .bg-gradient-hero {
+    background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(58, 106, 184, 0.1) 100%);
+  }
 }
