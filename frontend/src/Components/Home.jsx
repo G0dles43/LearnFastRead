@@ -350,7 +350,7 @@ export default function Home() {
               position: 'relative',
               zIndex: 1
             }}>
-              Dołącz do tysięcy użytkowników już dziś
+              Dołącz do nowych użytkowników już dziś
             </p>
             <Link 
               to="/register" 

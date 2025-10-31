@@ -1,24 +1,29 @@
 import React, { useEffect, useState } from "react";
-import styles from "./ChunkingReader.module.css";
 
 export default function ChunkingReader({ words, currentIndex, chunkSize = 3 }) {
   const [currentChunk, setCurrentChunk] = useState([]);
 
   useEffect(() => {
-    // Oblicz, który chunk pokazać na podstawie currentIndex
     const chunkIndex = Math.floor(currentIndex / chunkSize);
     const startIdx = chunkIndex * chunkSize;
     const endIdx = Math.min(startIdx + chunkSize, words.length);
     
-    const chunk = words.slice(startIdx, endIdx);
-    setCurrentChunk(chunk);
+    setCurrentChunk(words.slice(startIdx, endIdx));
   }, [currentIndex, words, chunkSize]);
 
+  const wordInChunkIndex = currentIndex % chunkSize;
+
   return (
-    <div className={styles.chunkingContainer}>
-      <div className={styles.chunkWrapper}>
+    <div className="min-h-[300px] flex items-center justify-center">
+      <div className="flex items-center gap-6 md:gap-8 lg:gap-10">
         {currentChunk.map((word, idx) => (
-          <span key={idx} className={styles.chunkWord}>
+          <span
+            key={`${word}-${idx}`}
+            className={`
+              'font-semibold transition-all duration-200'
+              'text-3xl md:text-5xl text-white' 
+            `}
+          >
             {word}
           </span>
         ))}

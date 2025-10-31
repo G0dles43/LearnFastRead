@@ -100,13 +100,11 @@ export default function Dashboard({ api }) {
 
   return (
     <div className="page-wrapper" style={{ 
-      background: 'linear-gradient(135deg, rgba(15, 15, 30, 0.95) 0%, rgba(26, 26, 46, 0.95) 100%), url("/3.png")', 
       backgroundSize: 'cover', 
-      backgroundPosition: 'center', 
+      backgroundPosition: 'center',
       backgroundAttachment: 'fixed' 
     }}>
       <div className="container">
-        {/* Header */}
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
             <h1 className="text-gradient mb-2">Fast Reader</h1>
