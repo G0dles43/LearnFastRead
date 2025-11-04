@@ -14,7 +14,7 @@ export default function ChunkingReader({ words, currentIndex, chunkSize = 3 }) {
   const wordInChunkIndex = currentIndex % chunkSize;
 
   return (
-    <div className="min-h-[300px] flex items-center justify-center">
+    <div className="min-h-[300px] w-full card card-elevated flex items-center justify-center">
       <div className="flex items-center gap-6 md:gap-8 lg:gap-10">
         {currentChunk.map((word, idx) => (
           <span

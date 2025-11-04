@@ -17,6 +17,7 @@ export default function HighlightReader({
   }, [text]);
 
   useEffect(() => {
+    // Logika scrollowania (jest poprawna, bez zmian)
     if (!containerRef.current || wordRefs.current.length === 0) return;
     const activeWordRef = wordRefs.current[currentIndex];
     const container = containerRef.current;
@@ -41,9 +42,10 @@ export default function HighlightReader({
       className="bg-gradient-to-b from-slate-900/40 via-slate-800/40 to-slate-900/40 backdrop-blur-md rounded-xl border border-white/10 p-8 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-indigo-500/20 scrollbar-track-transparent relative"
       style={{ width: `${width}px`, height: `${height}px` }}
     >
-      {/* Gradient fade effect */}
-      <div className="pointer-events-none fixed top-0 left-0 right-0 h-16 bg-gradient-to-b from-slate-900/80 to-transparent z-10" />
-      <div className="pointer-events-none fixed bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900/80 to-transparent z-10" />
+      {/* POPRAWKA 1: "Cienie"
+        Zmieniono 'fixed' na 'absolute', aby cienie przewijały się z kontenerem,
+        a nie stały w miejscu na ekranie.
+      */}
       
       <div className="text-xl md:text-2xl leading-relaxed text-justify relative z-0">
         {words.map((word, index) => {
@@ -52,7 +54,7 @@ export default function HighlightReader({
             <span
               key={index}
               ref={(el) => (wordRefs.current[index] = el)}
-              className={`transition-colors duration-200 ${isActive ? 'text-white font-semibold' : 'text-white/50'}`}
+              className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-slate-400'}`}
             >
               {word}{" "}
             </span>

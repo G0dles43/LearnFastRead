@@ -6,7 +6,21 @@ import Quiz from "./Quiz";
 import HighlightReader from "./HighlightReader";
 import RSVPReader from "./RSVPReader";
 import ChunkingReader from "./ChunkingReader";
-import { getDynamicDelay } from "../utils/readingUtils.js";
+
+const getDynamicDelay = (word, baseSpeedMs) => {
+  const minTime = baseSpeedMs * 0.75; 
+  const maxTime = baseSpeedMs * 1.5;  
+  const bonusPerChar = baseSpeedMs / 10; 
+
+  let delay;
+  if (!word || word.length <= 4) {
+    delay = minTime; 
+  } else {
+    delay = minTime + (word.length - 4) * bonusPerChar;
+  }
+
+  return Math.max(minTime, Math.min(delay, maxTime)); 
+};
 
 export default function TrainingSession() {
   const [words, setWords] = useState([]);
@@ -145,7 +159,6 @@ export default function TrainingSession() {
     const readingTimeMs = endTime - startTime; 
     setFinalReadingTime(readingTimeMs); 
 
-    // Sprawdzamy czy to ćwiczenie rankingowe ORAZ czy użytkownik może zdobywać punkty
     if (exercise?.is_ranked && attemptStatus?.can_rank) {
       axios
         .get(`http://127.0.0.1:8000/api/exercises/${id}/questions/`, {
@@ -153,17 +166,15 @@ export default function TrainingSession() {
         })
         .then((res) => {
           setQuestions(res.data);
-          setShowQuiz(true); // Pokaż quiz tylko jeśli można zdobywać punkty
+          setShowQuiz(true); 
         });
     } else {
-      // Dla ćwiczeń nierankingowych lub powtórzeń rankingowych (bez quizu)
       const minutes = readingTimeMs / 60000;
       const wpm = Math.round(words.length / minutes);
       alert(`Ćwiczenie treningowe ukończone! Prędkość: ${wpm} słów/min`);
       navigate("/dashboard");
     }
   };
-  // --- KONIEC POPRAWKI ---
 
   const handleRestart = () => {
     setIndex(0);
@@ -200,7 +211,6 @@ export default function TrainingSession() {
   };
 
   if (words.length === 0 || (exercise?.is_ranked && !attemptStatus)) {
-    // Dodano sprawdzenie attemptStatus, aby poczekać na załadowanie
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[rgba(15,15,30,0.97)] to-[rgba(26,26,46,0.97)]">
         <div className="spinner"></div>
@@ -208,22 +218,18 @@ export default function TrainingSession() {
     );
   }
 
-  // Sprawdzamy czy to ćwiczenie rankingowe gdzie użytkownik może zdobywać punkty
   const isRankingWithQuiz = exercise?.is_ranked && attemptStatus?.can_rank;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[rgba(15,15,30,0.97)] to-[rgba(26,26,46,0.97)] p-8 flex flex-col">
-      {/* Header with controls */}
       <div className="max-w-[1400px] w-full mx-auto mb-8 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold mb-2">
             {exercise?.title || 'Trening czytania'}
           </h1>
           
-          {/* --- POPRAWIONA LOGIKA ODZNAKI --- */}
           {exercise?.is_ranked && (
             <>
-              {/* Pokaż "RANKINGOWE" lub "TRENING" na podstawie statusu */}
               {attemptStatus && !attemptStatus.can_rank ? (
                 <div className="badge badge-primary">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1">
@@ -241,13 +247,10 @@ export default function TrainingSession() {
               )}
             </>
           )}
-          {/* --- KONIEC POPRAWKI --- */}
 
         </div>
 
-        {/* Control buttons */}
         <div className="flex gap-3">
-          {/* Ukryj pauzę, jeśli to podejście rankingowe z quizem */}
           {!isRankingWithQuiz && (
             <button 
               className="btn btn-ghost"
@@ -322,7 +325,7 @@ export default function TrainingSession() {
       {/* Main content area */}
       <div className="flex-1 max-w-[1400px] w-full mx-auto flex flex-col gap-8">
         {/* Reader area */}
-        <div className="card card-elevated flex-1 flex items-center justify-center min-h-[400px] relative overflow-hidden">
+        <div className="flex-1 flex items-center justify-center min-h-[400px] relative overflow-hidden">
           {/* Pause overlay */}
           {isPaused && !showQuiz && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center gap-6 z-10">
@@ -429,6 +432,7 @@ export default function TrainingSession() {
               </div>
             </div>
 
+            {/* Words remaining card */}
             <div className="card p-5">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-[#059669] flex items-center justify-center">
