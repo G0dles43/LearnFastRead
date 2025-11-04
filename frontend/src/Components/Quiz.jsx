@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 export default function Quiz({
+  api,
   questions,
   exerciseId,
   readingTimeMs,
@@ -14,12 +15,41 @@ export default function Quiz({
   const [rankingResult, setRankingResult] = useState(null); // Przechowa całą odpowiedź z backendu
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const listenersActive = useRef(true);
+
+  useEffect(() => {
+    const handleCheating = () => {
+      if (!listenersActive.current) {
+        return;
+      }
+      listenersActive.current = false; 
+      alert("Wykryto opuszczenie karty podczas quizu. Próba rankingowa została anulowana.");
+      onFinish(); 
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleCheating();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleCheating);
+
+    return () => {
+      listenersActive.current = false; 
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleCheating);
+    };
+  }, [onFinish]);
+
   const handleSubmit = () => {
-    if (isSubmitting) return;
-    
+    if (isSubmitting || !api) return; 
+       
+    listenersActive.current = false;
     setIsSubmitting(true);
     
-    axios
+    api
       .post(
         "http://127.0.0.1:8000/api/submit-progress/",
         {
@@ -43,7 +73,8 @@ export default function Quiz({
         } else {
           alert("Błąd zapisu wyniku.");
         }
-        setIsSubmitting(false); // Pozwól spróbować ponownie
+        setIsSubmitting(false); 
+        listenersActive.current = true;
       });
   };
 

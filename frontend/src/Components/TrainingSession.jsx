@@ -1,28 +1,13 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Quiz from "./Quiz";
 import HighlightReader from "./HighlightReader";
 import RSVPReader from "./RSVPReader";
 import ChunkingReader from "./ChunkingReader";
+import { getDynamicDelay } from "../utils/readingUtils.js";
 
-const getDynamicDelay = (word, baseSpeedMs) => {
-  const minTime = baseSpeedMs * 0.75; 
-  const maxTime = baseSpeedMs * 1.5;  
-  const bonusPerChar = baseSpeedMs / 10; 
-
-  let delay;
-  if (!word || word.length <= 4) {
-    delay = minTime; 
-  } else {
-    delay = minTime + (word.length - 4) * bonusPerChar;
-  }
-
-  return Math.max(minTime, Math.min(delay, maxTime)); 
-};
-
-export default function TrainingSession() {
+export default function TrainingSession({ api }) {
   const [words, setWords] = useState([]);
   const [index, setIndex] = useState(0);
   const [startTime, setStartTime] = useState(null);
@@ -53,13 +38,13 @@ export default function TrainingSession() {
   const [questions, setQuestions] = useState([]);
   const [showQuiz, setShowQuiz] = useState(false);
   const [exercise, setExercise] = useState(null);
-  const [attemptStatus, setAttemptStatus] = useState(null); // Przechowuje { can_rank: bool, message: string, ... }
+  const [attemptStatus, setAttemptStatus] = useState(null); 
 
   const [finalReadingTime, setFinalReadingTime] = useState(0);
 
   useEffect(() => {
-    if (!token) return;
-    axios
+      if (!token || !api) return;    
+      api
       .get("http://127.0.0.1:8000/api/user/settings/", {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -79,12 +64,13 @@ export default function TrainingSession() {
         setMode("rsvp");
         setChunkSize(3);
       });
-  }, [token]);
+  }, [token, api]);
 
   useEffect(() => {
+    if (!api) return;
     async function fetchExerciseData() {
       try {
-        const exerciseRes = await axios.get(
+        const exerciseRes = await api.get(
           `http://127.0.0.1:8000/api/exercises/${id}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -108,7 +94,7 @@ export default function TrainingSession() {
         }
         
         if (exerciseData.is_ranked) {
-          const statusRes = await axios.get(
+          const statusRes = await api.get(
             `http://127.0.0.1:8000/api/exercises/${id}/attempt-status/`,
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -121,7 +107,7 @@ export default function TrainingSession() {
       }
     }
     fetchExerciseData();
-  }, [id, token]);
+  }, [id, token, api]);
 
   useEffect(() => {
     if (words.length === 0 || isPaused || hasEnded) return;
@@ -160,19 +146,38 @@ export default function TrainingSession() {
     setFinalReadingTime(readingTimeMs); 
 
     if (exercise?.is_ranked && attemptStatus?.can_rank) {
-      axios
-        .get(`http://127.0.0.1:8000/api/exercises/${id}/questions/`, {
+      api.get(`exercises/${id}/questions/`, { 
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((res) => {
           setQuestions(res.data);
           setShowQuiz(true); 
+        })
+        .catch(err => {
+            console.error("Nie udało się pobrać pytań do quizu", err);
+            alert("Błąd: Nie udało się wczytać pytań quizu. Spróbuj ponownie.");
+            navigate("/dashboard");
         });
     } else {
-      const minutes = readingTimeMs / 60000;
-      const wpm = Math.round(words.length / minutes);
-      alert(`Ćwiczenie treningowe ukończone! Prędkość: ${wpm} słów/min`);
-      navigate("/dashboard");
+      if (!api) {
+          alert("Błąd API. Nie udało się zapisać postępu.");
+          navigate("/dashboard");
+          return;
+      }
+      api.post("submit-progress/", { 
+          exercise: id,
+          reading_time_ms: readingTimeMs,
+          answers: {}, 
+      })
+      .then(res => {
+          alert(res.data.message);
+          navigate("/dashboard");
+      })
+      .catch(err => {
+          console.error("Błąd zapisu wyniku treningu:", err);
+          alert(`Trening ukończony! (Nie udało się zapisać postępu: ${err.response?.data?.error || 'Błąd'})`);
+          navigate("/dashboard");
+      });
     }
   };
 
@@ -219,6 +224,11 @@ export default function TrainingSession() {
   }
 
   const isRankingWithQuiz = exercise?.is_ranked && attemptStatus?.can_rank;
+
+  const readerContainerClasses = `
+    flex-1 flex items-center justify-center min-h-[400px] relative overflow-hidden
+    ${mode !== 'highlight' ? 'card card-elevated' : ''}
+  `;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[rgba(15,15,30,0.97)] to-[rgba(26,26,46,0.97)] p-8 flex flex-col">
@@ -325,8 +335,7 @@ export default function TrainingSession() {
       {/* Main content area */}
       <div className="flex-1 max-w-[1400px] w-full mx-auto flex flex-col gap-8">
         {/* Reader area */}
-        <div className="flex-1 flex items-center justify-center min-h-[400px] relative overflow-hidden">
-          {/* Pause overlay */}
+        <div className={readerContainerClasses}>         
           {isPaused && !showQuiz && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center gap-6 z-10">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="white" opacity="0.9">
@@ -349,6 +358,7 @@ export default function TrainingSession() {
 
           {showQuiz ? (
             <Quiz
+              api={api}
               questions={questions}
               exerciseId={id}
               readingTimeMs={finalReadingTime}
