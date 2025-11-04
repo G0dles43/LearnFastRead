@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams} from "react-router-dom";
 import AiGeneratorButton from "./AiGeneratorButton.jsx";
+import { jwtDecode } from "jwt-decode";
 
 export default function ExerciseCreator({ api }) {
+
+  const { id } = useParams(); 
+  const isEditMode = Boolean(id);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
@@ -12,13 +16,13 @@ export default function ExerciseCreator({ api }) {
   const [isRanked, setIsRanked] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [numResults, setNumResults] = useState(5);
 
-  // --- NOWE STANY DO WALIDACJI I OBSŁUGI AI ---
-  const [isFormValid, setIsFormValid] = useState(false); // GŁÓWNY STAN WALIDACJI
-  const [aiError, setAiError] = useState(null); // Do pokazywania błędów z AI
+  const [isFormValid, setIsFormValid] = useState(false); 
+  const [aiError, setAiError] = useState(null); 
 
   const token = localStorage.getItem("access");
   const navigate = useNavigate();
@@ -27,50 +31,68 @@ export default function ExerciseCreator({ api }) {
     if (!token) { navigate("/login"); return; }
     if (!api) { console.error("ExerciseCreator: Brak instancji API."); setLoading(false); return; }
 
-    setLoading(true);
-    api.get("user/status/")
-      .then((res) => { setIsAdmin(res.data.is_admin); })
-      .catch((err) => { console.error("Błąd pobierania statusu użytkownika", err); })
-      .finally(() => { setLoading(false); });
-  }, [token, navigate, api]);
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        const statusRes = await api.get("user/status/");
+        setIsAdmin(statusRes.data.is_admin);
+
+        if (isEditMode) {
+          const exerciseRes = await api.get(`exercises/${id}/`);
+          const data = exerciseRes.data;
+          
+          const currentUserId = jwtDecode(token).user_id;
+          const isOwner = data.created_by_id === currentUserId;
+          if (!isOwner && !statusRes.data.is_admin) {
+             alert("Brak uprawnień do edycji tego ćwiczenia.");
+             navigate("/dashboard");
+             return;
+          }
+
+          setTitle(data.title);
+          setText(data.text);
+          setIsPublic(data.is_public);
+          setIsRanked(data.is_ranked);
+          setQuestions(data.questions || []); 
+        }
+      } catch (err) {
+        console.error("Błąd ładowania danych:", err);
+        alert("Nie udało się załadować danych.");
+        navigate("/dashboard");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [token, navigate, api, id, isEditMode]); 
 
   
-  // --- ⭐ GŁÓWNA LOGIKA WALIDACJI (O TO PROSIŁEŚ) ⭐ ---
-  // Ten hook uruchamia się przy każdej zmianie w formularzu
   useEffect(() => {
-    const minBank = 15; // Minimalna liczba pytań dla ćwiczenia rankingowego
+    const minBank = 15; 
 
-    // 1. Podstawowa walidacja (tytuł i tekst muszą istnieć)
     const isBaseValid = title.trim() !== "" && text.trim() !== "";
     if (!isBaseValid) {
       setIsFormValid(false);
-      return; // Nie idziemy dalej, jeśli brakuje podstaw
+      return; 
     }
 
-    // 2. Walidacja dla ćwiczeń RANKINGOWYCH
     if (isRanked) {
-      // 2a. Sprawdź, czy jest minimalna liczba pytań
       const hasMinQuestions = questions.length >= minBank;
       
-      // 2b. Sprawdź, czy KAŻDE pytanie jest poprawnie wypełnione
       const allQuestionsFilled = questions.every(
         (q) => q.text.trim() !== "" && q.correct_answer.trim() !== ""
       );
 
-      // Przycisk jest aktywny tylko, gdy oba warunki są spełnione
       setIsFormValid(hasMinQuestions && allQuestionsFilled);
     
     } else {
-      // 3. Walidacja dla ćwiczeń NIERANKINGOWYCH
-      // Wystarczy tytuł i tekst (sprawdzone w kroku 1)
       setIsFormValid(true);
     }
 
-  }, [title, text, questions, isRanked]); // Zależności, które odpala ją walidację
-  // --- KONIEC LOGIKI WALIDACJI ---
+  }, [title, text, questions, isRanked]); 
 
 
-  // Ta funkcja służy już tylko do wyświetlania komunikatu dla admina
   const getQuestionBankValidationMessage = () => {
     if (!isRanked) return null;
     
@@ -96,47 +118,58 @@ export default function ExerciseCreator({ api }) {
   const updateQuestion = (index, field, value) => { const u = [...questions]; u[index][field] = value; setQuestions(u); };
   const removeQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
 
-  // --- Funkcje do obsługi komponentu AI ---
   const handleAiQuestionsGenerated = (newQuestions) => {
-    // Dodajemy nowe pytania do już istniejących
     setQuestions(prevQuestions => [...prevQuestions, ...newQuestions]);
-    setAiError(null); // Czyścimy błędy, bo się udało
+    setAiError(null); 
   };
 
   const handleAiError = (errorMsg) => {
-    setAiError(errorMsg); // Ustawiamy błąd, aby go wyświetlić
+    setAiError(errorMsg); 
   };
-  // --- Koniec obsługi AI ---
 
-  const createExercise = async () => {
+  const handleSubmit = async () => {
     if (!api) return alert("Błąd: Brak instancji API.");
-    
-    // ⭐️ GŁÓWNA WALIDACJA - teraz wystarczy sprawdzić nasz stan
     if (!isFormValid) { 
-      alert("Formularz jest niekompletny lub zawiera błędy. Upewnij się, że wszystkie wymagane pola są wypełnione."); 
+      alert("Formularz jest niekompletny lub zawiera błędy."); 
       return; 
     }
 
-    // Usunęliśmy stare alerty i `window.confirm`, bo przycisk jest `disabled`
-    // Logika tworzenia ćwiczenia pozostaje bez zmian
+    setIsSubmitting(true);
+
+    const cleanedText = text.replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "").replace(/\s+/g, " ").trim();
+    
+    const payload = { 
+      title, 
+      text: cleanedText,
+    };
+    
+    if (isAdmin) {
+      payload.is_public = isPublic;
+      payload.is_ranked = isRanked;
+    }
+    
+    if (isRanked) {
+      payload.questions = questions.map(q => ({
+          text: q.text, 
+          correct_answer: q.correct_answer,
+          ...q 
+      }));
+    }
+
     try {
-      const cleanedText = text.replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "").replace(/\s+/g, " ").trim();
-      const payload = { title, text: cleanedText };
-      
-      if (isAdmin) {
-        payload.is_public = isPublic;
-        payload.is_ranked = isRanked;
-        if (isRanked && questions.length > 0) {
-          payload.questions = questions.map(q => ({ text: q.text, correct_answer: q.correct_answer }));
-        }
+      if (isEditMode) {
+        await api.patch(`exercises/${id}/`, payload);
+        alert("Ćwiczenie zaktualizowane!");
+      } else {
+        await api.post("exercises/create/", payload);
+        alert("Ćwiczenie dodane!");
       }
-      
-      await api.post("exercises/create/", payload);
-      alert("Ćwiczenie dodane!");
       navigate("/dashboard");
     } catch (error) {
-      console.error("Błąd tworzenia ćwiczenia:", error);
-      alert("Błąd podczas tworzenia ćwiczenia");
+      console.error("Błąd zapisu ćwiczenia:", error);
+      alert(`Błąd podczas zapisu: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -164,7 +197,6 @@ export default function ExerciseCreator({ api }) {
   const addExerciseFromResult = async (resultTitle, snippet) => {
     if (!api) return alert("Błąd: Brak instancji API.");
     try {
-      // Domyślnie dodaje jako prywatne, nieranigowe
       await api.post("exercises/create/", { title: resultTitle, text: snippet });
       alert(`Ćwiczenie "${resultTitle}" dodane pomyślnie!`);
       navigate("/dashboard");
@@ -181,7 +213,6 @@ export default function ExerciseCreator({ api }) {
   );
 
   const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-  // Używamy nowej funkcji walidacyjnej (tylko do wyświetlania wiadomości)
   const validation = getQuestionBankValidationMessage();
 
   return (
@@ -290,22 +321,19 @@ export default function ExerciseCreator({ api }) {
                 </label>
               </div>
 
-              {/* Questions Section */}
               {isRanked && (
                 <div style={{ marginTop: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Bank Pytań (min. 15)</h4>
                     
-                    {/* --- ZAKTUALIZOWANE PRZYCISKI (Z KOMPONENTEM AI) --- */}
                     <div style={{display: 'flex', gap: '0.5rem'}}>
                       
-                      {/* 2. Używamy nowego komponentu AI */}
                       <AiGeneratorButton
                         api={api}
                         text={text}
                         topic={title}
                         onQuestionsGenerated={handleAiQuestionsGenerated}
-                        onError={handleAiError} // Przekazujemy funkcję do obsługi błędu
+                        onError={handleAiError} 
                       />
                       
                       <button onClick={addQuestion} className="btn btn-primary btn-sm">
@@ -318,14 +346,12 @@ export default function ExerciseCreator({ api }) {
                     </div>
                   </div>
 
-                  {/* 3. Wyświetlanie błędu, jeśli AI go zwróci */}
                   {aiError && (
                     <div className="badge badge-danger" style={{ display: 'block', marginBottom: '1rem', padding: '0.75rem 1rem', width: '100%' }}>
                       {aiError}
                     </div>
                   )}
 
-                  {/* Wyświetlanie komunikatu walidacji (bez zmian) */}
                   {validation && (
                     <div className={`badge ${
                       validation.type === 'error' ? 'badge-danger' :
@@ -337,7 +363,6 @@ export default function ExerciseCreator({ api }) {
                     </div>
                   )}
 
-                  {/* Lista pytań (bez zmian) */}
                   {questions.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', border: '2px dashed var(--border)' }}>
                       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{ margin: '0 auto 1rem' }}>
@@ -400,31 +425,37 @@ export default function ExerciseCreator({ api }) {
             </div>
           )}
 
-          {/* --- ⭐ ZAKTUALIZOWANY PRZYCISK "Stwórz ćwiczenie" Z WALIDACJĄ ⭐ --- */}
           <button 
-            onClick={createExercise} 
+            onClick={handleSubmit} 
             className="btn btn-primary btn-lg" 
-            style={{ width: '100%', marginTop: '1.5rem', cursor: isFormValid ? 'pointer' : 'not-allowed', opacity: isFormValid ? 1 : 0.6 }}
-            disabled={!isFormValid} // 4. PRZYCISK JEST WYŁĄCZONY, JEŚLI WALIDACJA NIE PRZEJDZIE
+            style={{ width: '100%', marginTop: '1.5rem', cursor: (isFormValid && !isSubmitting) ? 'pointer' : 'not-allowed', opacity: (isFormValid && !isSubmitting) ? 1 : 0.6 }}
+            disabled={!isFormValid || isSubmitting} 
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-              <path d="M17 21v-8H7v8M7 3v5h8"/>
-            </svg>
-            Stwórz ćwiczenie
+            {isSubmitting ? (
+              <div className="spinner-small mx-auto"></div>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                  <path d="M17 21v-8H7v8M7 3v5h8"/>
+                </svg>
+                {isEditMode ? 'Zapisz zmiany' : 'Stwórz ćwiczenie'}
+              </>
+            )}
           </button>
 
-          {/* 5. Komunikat pomocy, dlaczego przycisk jest wyłączony */}
           {!isFormValid && (
              <small style={{ color: 'var(--warning)', textAlign: 'center', display: 'block', marginTop: '0.75rem' }}>
-              Wypełnij tytuł, tekst oraz (jeśli rankingowe) minimum 15 poprawnie wypełnionych pytań.
+              {isAdmin && isRanked ? (
+                'Wypełnij tytuł, tekst oraz minimum 15 poprawnie wypełnionych pytań.'
+              ) : (
+                'Wypełnij tytuł i tekst, aby aktywować przycisk.'
+              )}
              </small>
           )}
-          {/* --- KONIEC SEKCJI WALIDACJI PRZYCISKU --- */}
 
         </div>
 
-        {/* Wikipedia Search (bez zmian) */}
         <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -8,7 +8,8 @@ export default function ExerciseList({
   loggedInUserId, 
   onStartExercise, 
   onToggleFavorite, 
-  onDeleteExercise 
+  onDeleteExercise,
+  isAdmin
 }) {
   const navigate = useNavigate();
 
@@ -62,6 +63,7 @@ export default function ExerciseList({
             onToggleFavorite={onToggleFavorite}
             onDelete={onDeleteExercise}
             animationDelay={`${0.05 * idx}s`}
+            isAdmin={isAdmin} 
           />
         ))}
       </div>

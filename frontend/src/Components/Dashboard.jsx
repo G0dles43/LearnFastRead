@@ -159,7 +159,7 @@ export default function Dashboard({ api }) {
     if (!api) return;
     if (!window.confirm("Czy na pewno chcesz usunąć to ćwiczenie?")) return;
     try {
-      await api.delete(`exercises/${id}/delete/`);
+      await api.delete(`exercises/${id}/`);
       setExercises((prev) => prev.filter((ex) => ex.id !== id));
     } catch (err) {
       console.error("Błąd usuwania ćwiczenia:", err);
@@ -229,7 +229,6 @@ export default function Dashboard({ api }) {
             />
           </aside>
 
-          {/* Kolumna 2: Lista ćwiczeń (ma własną animację wewnątrz) */}
           <ExerciseList
             loading={loadingExercises}
             exercises={exercises}
@@ -237,6 +236,7 @@ export default function Dashboard({ api }) {
             onStartExercise={handleStartExercise}
             onToggleFavorite={toggleFavorite}
             onDeleteExercise={deleteExercise}
+            isAdmin={userStatus?.is_admin || false} 
           />
 
         </div>

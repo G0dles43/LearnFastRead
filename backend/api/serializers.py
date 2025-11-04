@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum
-
+from django.db import transaction
 
 User = get_user_model()
 
@@ -173,6 +173,26 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
                 Question.objects.create(exercise=exercise, **question_data)
         
         return exercise
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        questions_data = self.context['request'].data.get('questions')
+
+        instance.title = validated_data.get('title', instance.title)
+        instance.text = validated_data.get('text', instance.text)
+        
+        if self.context['request'].user.is_staff:
+            instance.is_public = validated_data.get('is_public', instance.is_public)
+            instance.is_ranked = validated_data.get('is_ranked', instance.is_ranked)
+        
+        instance.save() 
+        if questions_data is not None:
+            instance.questions.all().delete()
+            for question_data in questions_data:
+                question_data.pop('id', None) 
+                Question.objects.create(exercise=instance, **question_data)
+
+        return instance
     
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:

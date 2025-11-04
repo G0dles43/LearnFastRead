@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import RSVPReader from "./RSVPReader.jsx";
+import { getDynamicDelay } from "../utils/readingUtils.js"; 
 
 const msToWpm = (ms) => Math.round(60000 / ms);
 const wpmToMs = (wpm) => Math.round(60000 / wpm);
@@ -30,7 +31,10 @@ export default function CalibrationSession() {
       headers: { Authorization: `Bearer ${token}` },
     })
     .then(res => {
-      const cleanText = res.data.text.replace(/\s+/g, " ").trim();
+     const cleanText = res.data.text
+        .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
       setWords(cleanText.split(/\s+/));
       setIsLoading(false);
     })
@@ -54,26 +58,32 @@ export default function CalibrationSession() {
           clearTimeout(timerRef.current);
           return prev;
         }
-        timerRef.current = setTimeout(step, speedMsRef.current);
-        return nextIndex;
+        const currentWord = words[nextIndex];
+
+        const dynamicDelay = getDynamicDelay(currentWord, speedMsRef.current);
+
+        timerRef.current = setTimeout(step, dynamicDelay);        return nextIndex;
       });
     };
 
-    timerRef.current = setTimeout(step, speedMsRef.current);
+    const initialWord = words[index];
+    const initialDelay = getDynamicDelay(initialWord, speedMsRef.current);
+    timerRef.current = setTimeout(step, initialDelay);
+
     return () => clearTimeout(timerRef.current);
   }, [words, isLoading, isFinished, index]);
 
   const changeSpeed = useCallback((deltaWpm) => {
     setCurrentWpm(prevWpm => {
       const newWpm = Math.max(50, Math.min(1500, prevWpm + deltaWpm));
-      speedMsRef.current = wpmToMs(newWpm);
+      speedMsRef.current = wpmToMs(newWpm); 
       return newWpm;
     });
   }, []);
 
   const increaseSpeed = () => changeSpeed(WPM_STEP);
   const decreaseSpeed = () => changeSpeed(-WPM_STEP);
-
+ 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (isFinished) return;

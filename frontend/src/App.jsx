@@ -116,6 +116,7 @@ function App() {
         <Route path="/training/:id" element={<TrainingSession api={apiInstance} />} />
         <Route path="/settings" element={<Settings api={apiInstance} />} />
         <Route path="/create-exercise" element={<ExerciseCreator api={apiInstance} />} />
+        <Route path="/edit-exercise/:id" element={<ExerciseCreator api={apiInstance} />} />
         <Route path="/ranking" element={<Leaderboard api={apiInstance} />} />
         <Route path="/calibrate" element={<CalibrationSession api={apiInstance} />} />
         <Route path="/how-it-works" element={<HowItWorks />} />

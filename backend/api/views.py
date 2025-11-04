@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics, permissions
+from .permissions import IsOwnerOrAdminOrReadOnly
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
 from .models import Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
@@ -99,13 +100,18 @@ class ReadingExerciseCreate(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-class ReadingExerciseDelete(generics.DestroyAPIView):
-    queryset = ReadingExercise.objects.all()
+class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    API do pobierania, aktualizowania i usuwania ćwiczeń.
+    - Każdy zalogowany może CZYTAĆ (GET).
+    - Tylko WŁAŚCICIEL lub ADMIN może EDYTOWAĆ (PUT/PATCH) i USUWAĆ (DELETE).
+    """
+    queryset = ReadingExercise.objects.all().prefetch_related('questions')
     serializer_class = ReadingExerciseSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return ReadingExercise.objects.filter(created_by=self.request.user)
+    permission_classes = [IsAuthenticated, IsOwnerOrAdminOrReadOnly]
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
 
 
 class SubmitProgress(APIView):
