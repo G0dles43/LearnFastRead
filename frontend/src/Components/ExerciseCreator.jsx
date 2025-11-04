@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import AiGeneratorButton from "./AiGeneratorButton.jsx";
 
 export default function ExerciseCreator({ api }) {
   const [title, setTitle] = useState("");
@@ -15,6 +16,10 @@ export default function ExerciseCreator({ api }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [numResults, setNumResults] = useState(5);
 
+  // --- NOWE STANY DO WALIDACJI I OBSŁUGI AI ---
+  const [isFormValid, setIsFormValid] = useState(false); // GŁÓWNY STAN WALIDACJI
+  const [aiError, setAiError] = useState(null); // Do pokazywania błędów z AI
+
   const token = localStorage.getItem("access");
   const navigate = useNavigate();
 
@@ -29,25 +34,56 @@ export default function ExerciseCreator({ api }) {
       .finally(() => { setLoading(false); });
   }, [token, navigate, api]);
 
-  const getRecommendedQuestions = () => {
-    const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-    if (wordCount === 0) return { min: 0, max: 0, recommended: 0 };
-    if (wordCount <= 300) return { min: 3, max: 4, recommended: 3 };
-    if (wordCount <= 500) return { min: 4, max: 5, recommended: 4 };
-    if (wordCount <= 800) return { min: 5, max: 6, recommended: 5 };
-    return { min: 6, max: 7, recommended: 6 };
-  };
+  
+  // --- ⭐ GŁÓWNA LOGIKA WALIDACJI (O TO PROSIŁEŚ) ⭐ ---
+  // Ten hook uruchamia się przy każdej zmianie w formularzu
+  useEffect(() => {
+    const minBank = 15; // Minimalna liczba pytań dla ćwiczenia rankingowego
 
-  const getQuestionValidation = () => {
+    // 1. Podstawowa walidacja (tytuł i tekst muszą istnieć)
+    const isBaseValid = title.trim() !== "" && text.trim() !== "";
+    if (!isBaseValid) {
+      setIsFormValid(false);
+      return; // Nie idziemy dalej, jeśli brakuje podstaw
+    }
+
+    // 2. Walidacja dla ćwiczeń RANKINGOWYCH
+    if (isRanked) {
+      // 2a. Sprawdź, czy jest minimalna liczba pytań
+      const hasMinQuestions = questions.length >= minBank;
+      
+      // 2b. Sprawdź, czy KAŻDE pytanie jest poprawnie wypełnione
+      const allQuestionsFilled = questions.every(
+        (q) => q.text.trim() !== "" && q.correct_answer.trim() !== ""
+      );
+
+      // Przycisk jest aktywny tylko, gdy oba warunki są spełnione
+      setIsFormValid(hasMinQuestions && allQuestionsFilled);
+    
+    } else {
+      // 3. Walidacja dla ćwiczeń NIERANKINGOWYCH
+      // Wystarczy tytuł i tekst (sprawdzone w kroku 1)
+      setIsFormValid(true);
+    }
+
+  }, [title, text, questions, isRanked]); // Zależności, które odpala ją walidację
+  // --- KONIEC LOGIKI WALIDACJI ---
+
+
+  // Ta funkcja służy już tylko do wyświetlania komunikatu dla admina
+  const getQuestionBankValidationMessage = () => {
     if (!isRanked) return null;
-    const { min, max, recommended } = getRecommendedQuestions();
+    
+    const minBank = 15;
+    const recommendedBank = 20;
     const currentCount = questions.length;
+    
     if (text.trim().length === 0) return { type: "info", message: "Wpisz tekst ćwiczenia..." };
-    if (currentCount === 0) return { type: "error", message: `Brak pytań! Min. ${min} (zalecane: ${recommended})` };
-    if (currentCount < min) return { type: "warning", message: `Za mało pytań! Masz ${currentCount}, min. ${min}` };
-    if (currentCount > max) return { type: "warning", message: `Za dużo pytań! Masz ${currentCount}, max. ${max}` };
-    if (currentCount === recommended) return { type: "success", message: `Idealna liczba pytań! (${currentCount}/${recommended})` };
-    return { type: "ok", message: `Dobra liczba pytań (${currentCount}). Zalecane: ${recommended}` };
+    if (currentCount === 0) return { type: "error", message: `Brak pytań! Minimum do banku: ${minBank}` };
+    if (currentCount < minBank) return { type: "warning", message: `Za mało pytań do banku! Masz ${currentCount}, minimum ${minBank}` };
+    if (currentCount >= recommendedBank) return { type: "success", message: `Wystarczająca liczba pytań w banku! (${currentCount})` };
+    
+    return { type: "ok", message: `Liczba pytań w banku: ${currentCount}` };
   };
 
   const handleRankedChange = (e) => {
@@ -60,20 +96,33 @@ export default function ExerciseCreator({ api }) {
   const updateQuestion = (index, field, value) => { const u = [...questions]; u[index][field] = value; setQuestions(u); };
   const removeQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
 
+  // --- Funkcje do obsługi komponentu AI ---
+  const handleAiQuestionsGenerated = (newQuestions) => {
+    // Dodajemy nowe pytania do już istniejących
+    setQuestions(prevQuestions => [...prevQuestions, ...newQuestions]);
+    setAiError(null); // Czyścimy błędy, bo się udało
+  };
+
+  const handleAiError = (errorMsg) => {
+    setAiError(errorMsg); // Ustawiamy błąd, aby go wyświetlić
+  };
+  // --- Koniec obsługi AI ---
+
   const createExercise = async () => {
     if (!api) return alert("Błąd: Brak instancji API.");
-    if (!title || !text) { alert("Podaj tytuł i tekst ćwiczenia!"); return; }
-    if (isRanked) {
-      const { min, max } = getRecommendedQuestions();
-      if (questions.length === 0) { alert("Ćwiczenia rankingowe muszą mieć pytania!"); return; }
-      if (questions.length < min && !window.confirm(`Masz tylko ${questions.length} pytań (min. ${min}). Kontynuować?`)) return;
-      if (questions.length > max && !window.confirm(`Masz ${questions.length} pytań (max. ${max}). Kontynuować?`)) return;
-      if (questions.some(q => !q.text.trim() || !q.correct_answer.trim())) { alert("Wypełnij treść i odpowiedź dla wszystkich pytań!"); return; }
+    
+    // ⭐️ GŁÓWNA WALIDACJA - teraz wystarczy sprawdzić nasz stan
+    if (!isFormValid) { 
+      alert("Formularz jest niekompletny lub zawiera błędy. Upewnij się, że wszystkie wymagane pola są wypełnione."); 
+      return; 
     }
 
+    // Usunęliśmy stare alerty i `window.confirm`, bo przycisk jest `disabled`
+    // Logika tworzenia ćwiczenia pozostaje bez zmian
     try {
       const cleanedText = text.replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "").replace(/\s+/g, " ").trim();
       const payload = { title, text: cleanedText };
+      
       if (isAdmin) {
         payload.is_public = isPublic;
         payload.is_ranked = isRanked;
@@ -81,6 +130,7 @@ export default function ExerciseCreator({ api }) {
           payload.questions = questions.map(q => ({ text: q.text, correct_answer: q.correct_answer }));
         }
       }
+      
       await api.post("exercises/create/", payload);
       alert("Ćwiczenie dodane!");
       navigate("/dashboard");
@@ -114,6 +164,7 @@ export default function ExerciseCreator({ api }) {
   const addExerciseFromResult = async (resultTitle, snippet) => {
     if (!api) return alert("Błąd: Brak instancji API.");
     try {
+      // Domyślnie dodaje jako prywatne, nieranigowe
       await api.post("exercises/create/", { title: resultTitle, text: snippet });
       alert(`Ćwiczenie "${resultTitle}" dodane pomyślnie!`);
       navigate("/dashboard");
@@ -130,7 +181,8 @@ export default function ExerciseCreator({ api }) {
   );
 
   const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-  const validation = getQuestionValidation();
+  // Używamy nowej funkcji walidacyjnej (tylko do wyświetlania wiadomości)
+  const validation = getQuestionBankValidationMessage();
 
   return (
     <div className="page-wrapper" style={{ 
@@ -140,7 +192,7 @@ export default function ExerciseCreator({ api }) {
       backgroundAttachment: 'fixed' 
     }}>
       <div className="container" style={{ maxWidth: '1200px' }}>
-        {/* Header */}
+        {/* Header (bez zmian) */}
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
             <h1 className="text-gradient mb-2">Kreator Ćwiczeń</h1>
@@ -196,7 +248,7 @@ export default function ExerciseCreator({ api }) {
             </div>
           </div>
 
-          {/* Admin Options */}
+          {/* Admin Options (bez zmian) */}
           {isAdmin && (
             <div className="card" style={{ background: 'var(--bg-elevated)', padding: '1.5rem', marginTop: '1.5rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -217,7 +269,7 @@ export default function ExerciseCreator({ api }) {
                   />
                   <div>
                     <div style={{ fontWeight: 600 }}>Ćwiczenie rankingowe</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Wymaga pytań sprawdzających</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Wymaga banku pytań sprawdzających</div>
                   </div>
                 </label>
 
@@ -241,17 +293,39 @@ export default function ExerciseCreator({ api }) {
               {/* Questions Section */}
               {isRanked && (
                 <div style={{ marginTop: '1.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Pytania kontrolne</h4>
-                    <button onClick={addQuestion} className="btn btn-primary btn-sm">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                      Dodaj pytanie
-                    </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Bank Pytań (min. 15)</h4>
+                    
+                    {/* --- ZAKTUALIZOWANE PRZYCISKI (Z KOMPONENTEM AI) --- */}
+                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                      
+                      {/* 2. Używamy nowego komponentu AI */}
+                      <AiGeneratorButton
+                        api={api}
+                        text={text}
+                        topic={title}
+                        onQuestionsGenerated={handleAiQuestionsGenerated}
+                        onError={handleAiError} // Przekazujemy funkcję do obsługi błędu
+                      />
+                      
+                      <button onClick={addQuestion} className="btn btn-primary btn-sm">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <line x1="12" y1="5" x2="12" y2="19"/>
+                          <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Dodaj pytanie
+                      </button>
+                    </div>
                   </div>
 
+                  {/* 3. Wyświetlanie błędu, jeśli AI go zwróci */}
+                  {aiError && (
+                    <div className="badge badge-danger" style={{ display: 'block', marginBottom: '1rem', padding: '0.75rem 1rem', width: '100%' }}>
+                      {aiError}
+                    </div>
+                  )}
+
+                  {/* Wyświetlanie komunikatu walidacji (bez zmian) */}
                   {validation && (
                     <div className={`badge ${
                       validation.type === 'error' ? 'badge-danger' :
@@ -263,6 +337,7 @@ export default function ExerciseCreator({ api }) {
                     </div>
                   )}
 
+                  {/* Lista pytań (bez zmian) */}
                   {questions.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', border: '2px dashed var(--border)' }}>
                       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{ margin: '0 auto 1rem' }}>
@@ -270,7 +345,7 @@ export default function ExerciseCreator({ api }) {
                         <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
                         <line x1="12" y1="17" x2="12.01" y2="17"/>
                       </svg>
-                      <p style={{ color: 'var(--text-secondary)' }}>Brak pytań. Kliknij "Dodaj pytanie"</p>
+                      <p style={{ color: 'var(--text-secondary)' }}>Brak pytań. Dodaj je ręcznie lub wygeneruj.</p>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -314,16 +389,31 @@ export default function ExerciseCreator({ api }) {
             </div>
           )}
 
-          <button onClick={createExercise} className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: '1.5rem' }}>
+          {/* --- ⭐ ZAKTUALIZOWANY PRZYCISK "Stwórz ćwiczenie" Z WALIDACJĄ ⭐ --- */}
+          <button 
+            onClick={createExercise} 
+            className="btn btn-primary btn-lg" 
+            style={{ width: '100%', marginTop: '1.5rem', cursor: isFormValid ? 'pointer' : 'not-allowed', opacity: isFormValid ? 1 : 0.6 }}
+            disabled={!isFormValid} // 4. PRZYCISK JEST WYŁĄCZONY, JEŚLI WALIDACJA NIE PRZEJDZIE
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
               <path d="M17 21v-8H7v8M7 3v5h8"/>
             </svg>
             Stwórz ćwiczenie
           </button>
+
+          {/* 5. Komunikat pomocy, dlaczego przycisk jest wyłączony */}
+          {!isFormValid && (
+             <small style={{ color: 'var(--warning)', textAlign: 'center', display: 'block', marginTop: '0.75rem' }}>
+              Wypełnij tytuł, tekst oraz (jeśli rankingowe) minimum 15 poprawnie wypełnionych pytań.
+             </small>
+          )}
+          {/* --- KONIEC SEKCJI WALIDACJI PRZYCISKU --- */}
+
         </div>
 
-        {/* Wikipedia Search */}
+        {/* Wikipedia Search (bez zmian) */}
         <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -419,7 +509,6 @@ export default function ExerciseCreator({ api }) {
             )}
           </button>
 
-          {/* Results */}
           {results.length > 0 && (
             <div style={{ marginTop: '2rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>

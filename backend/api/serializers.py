@@ -3,6 +3,10 @@ from rest_framework import serializers
 from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+# --- DODANE IMPORTY ---
+from django.utils import timezone
+from datetime import timedelta
+# --- KONIEC DODANYCH IMPORTÓW ---
 
 User = get_user_model()
 
@@ -44,37 +48,64 @@ class QuestionSerializer(serializers.ModelSerializer):
 class ReadingExerciseSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(source='created_by.username')
     created_by_id = serializers.ReadOnlyField(source='created_by.id') 
-    
     word_count = serializers.IntegerField(read_only=True) 
-    
     questions = QuestionSerializer(many=True, read_only=True, required=False)
     is_favorite = serializers.SerializerMethodField()
     created_by_is_admin = serializers.SerializerMethodField()
+    
+    # --- ZMIANA 1: Dodaj nowe pole ---
+    user_attempt_status = serializers.SerializerMethodField()
 
     class Meta:
         model = ReadingExercise
         fields = ['id', 'title', 'text', 'created_at', 'is_public', 'is_ranked', 
                   'created_by', 'created_by_id', 'word_count', 'questions', 
-                  'is_favorite', 'created_by_is_admin']
+                  'is_favorite', 'created_by_is_admin',
+                  'user_attempt_status' # <-- ZMIANA 2: Dodaj pole do listy
+                 ]
         read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
-
-
     def get_is_favorite(self, obj):
-        """
-        Sprawdź czy aktualny użytkownik ma to ćwiczenie w ulubionych
-        """
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return request.user in obj.favorited_by.all()
         return False
     
     def get_created_by_is_admin(self, obj):
-        """Sprawdza, czy twórca ćwiczenia jest adminem."""
         if obj.created_by:
             return obj.created_by.is_staff 
         return False 
     
+    # --- ZMIANA 3: Dodaj nową metodę ---
+    def get_user_attempt_status(self, obj):
+        """
+        Sprawdza status rankingu użytkownika dla tego ćwiczenia.
+        Zwraca: 'rankable', 'training_cooldown', lub 'non_ranked'.
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+            
+        if not obj.is_ranked:
+            return 'non_ranked'
+            
+        user = request.user
+        
+        last_ranked = UserProgress.objects.filter(
+            user=user,
+            exercise=obj,
+            counted_for_ranking=True
+        ).order_by('-completed_at').first()
+        
+        if not last_ranked:
+            return 'rankable'
+            
+        one_month_ago = timezone.now() - timedelta(days=30)
+        if last_ranked.completed_at >= one_month_ago:
+            return 'training_cooldown'
+        else:
+            return 'rankable'
+
     def validate(self, data):
         user = self.context['request'].user
         if not user.is_staff:

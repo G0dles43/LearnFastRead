@@ -8,7 +8,8 @@ import TrainingSession from "./Components/TrainingSession.jsx";
 import Settings from "./Components/Settings.jsx";
 import ExerciseCreator from "./Components/ExerciseCreator.jsx";
 import Leaderboard from "./Components/Leaderboard.jsx";
-import CalibrationSession from "./Components/CalibrationSession.jsx"; 
+import CalibrationSession from "./Components/CalibrationSession.jsx";
+import HowItWorks from "./Components/HowItWorks.jsx";
 
 import axios from "axios";
 import { useState, useEffect } from "react"; 
@@ -114,6 +115,7 @@ function App() {
         <Route path="/create-exercise" element={<ExerciseCreator api={apiInstance} />} />
         <Route path="/ranking" element={<Leaderboard api={apiInstance} />} />
         <Route path="/calibrate" element={<CalibrationSession api={apiInstance} />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
       </Routes>
     </>
   );

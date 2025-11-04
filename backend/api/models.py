@@ -49,6 +49,7 @@ class ReadingExercise(models.Model):
         return self.title
     
     def get_recommended_questions(self):
+        """Zwraca liczbę pytań DO LOSOWANIA (nie do banku)"""
         if self.word_count <= 300:
             return 3
         elif self.word_count <= 500:
@@ -103,12 +104,10 @@ class UserProgress(models.Model):
     accuracy = models.FloatField()
     completed_at = models.DateTimeField(auto_now_add=True)
     
-    # System rankingowy
     counted_for_ranking = models.BooleanField(default=False)
     attempt_number = models.IntegerField(default=1)
     ranking_points = models.IntegerField(default=0)
     
-    # Funkcja 2: Wyzwania Dnia
     completed_daily_challenge = models.BooleanField(default=False)
     
     class Meta:
@@ -120,7 +119,8 @@ class UserProgress(models.Model):
         if self.accuracy < 60:
             return 0
         
-        word_count = self.exercise.get_word_count()
+        # --- POPRAWKA 1 ---
+        word_count = self.exercise.word_count 
         
         if word_count <= 300:
             length_multiplier = 0.8
@@ -137,48 +137,37 @@ class UserProgress(models.Model):
     def can_resubmit_for_ranking(self):
         """Sprawdza czy użytkownik może ponownie wysłać wynik do rankingu (po 30 dniach)"""
         if not self.counted_for_ranking:
-            return False # To nie był wynik rankingowy, więc nie ma "cooldownu"
+            return False 
         
         one_month_ago = timezone.now() - timedelta(days=30)
         return self.completed_at < one_month_ago
     
     def save(self, *args, **kwargs):
         """
-        Główna logika zapisu: ustala ranking, oblicza punkty, zapisuje,
-        a następnie aktualizuje statystyki i sprawdza osiągnięcia.
+        Główna logika zapisu
         """
         old_ranked_attempt_to_deactivate = None
         
         if not self.pk:  # Logika uruchamiana tylko przy tworzeniu nowego rekordu
-            # 1. Ustal numer próby i czy liczy się do rankingu
             old_ranked_attempt_to_deactivate = self._handle_ranking_eligibility()
             
-            # 2. Oblicz punkty (w tym bonusy), jeśli to próba rankingowa
             if self.counted_for_ranking:
                 self._calculate_points_with_bonus()
             else:
                 self.ranking_points = 0
                 self.completed_daily_challenge = False
         
-        # 3. Zapisz ten nowy rekord UserProgress w bazie
         super().save(*args, **kwargs)
         
-        # 4. Jeśli był stary rekord do deaktywacji, zrób to teraz
-        #    (Robimy to po 'super().save()', aby uniknąć problemów)
         if old_ranked_attempt_to_deactivate:
             old_ranked_attempt_to_deactivate.counted_for_ranking = False
             old_ranked_attempt_to_deactivate.save()
             
-        # 5. Zaktualizuj statystyki na profilu usera i sprawdź odznaki
         if self.counted_for_ranking:
             self.update_user_stats()
             self._check_for_new_achievements()
 
     def _handle_ranking_eligibility(self):
-        """
-        Metoda pomocnicza: Ustawia self.attempt_number i self.counted_for_ranking.
-        Zwraca stary rekord rankingowy, jeśli trzeba go deaktywować.
-        """
         previous_attempts = UserProgress.objects.filter(
             user=self.user, exercise=self.exercise
         )
@@ -187,26 +176,18 @@ class UserProgress(models.Model):
         last_ranked_attempt = previous_attempts.filter(counted_for_ranking=True).first()
         
         if not last_ranked_attempt:
-            # To jest pierwsza próba rankingowa dla tego ćwiczenia.
             self.counted_for_ranking = True
             return None
         
         if last_ranked_attempt.can_resubmit_for_ranking():
-            # Minęło 30 dni, ta próba jest nową próbą rankingową.
             self.counted_for_ranking = True
-            return last_ranked_attempt # Zwróć stary rekord do deaktywacji
+            return last_ranked_attempt 
         
-        # Nie minęło 30 dni. To jest tylko próba treningowa.
         self.counted_for_ranking = False
         return None
 
     def _calculate_points_with_bonus(self):
-        """
-        Metoda pomocnicza: Oblicza i ustawia self.ranking_points
-        oraz self.completed_daily_challenge.
-        """
         from .services import get_today_challenge
-
         base_points = self.calculate_ranking_points()
 
         if base_points == 0:
@@ -223,11 +204,6 @@ class UserProgress(models.Model):
             self.completed_daily_challenge = False
 
     def update_user_stats(self):
-        """
-        Aktualizuje zagregowane statystyki na modelu CustomUser.
-        Średnie liczone są tylko z prób, w których zdobyto punkty.
-        Używa aggregate() dla lepszej wydajności.
-        """
         user = self.user
         
         ranking_results = UserProgress.objects.filter(
@@ -238,8 +214,8 @@ class UserProgress(models.Model):
         
         stats = ranking_results.aggregate(
             total_points=Sum('ranking_points'), 
-            count=Count('id'),                 
-            total_wpm=Sum('wpm'),              
+            count=Count('id'),              
+            total_wpm=Sum('wpm'),            
             total_accuracy=Sum('accuracy')    
         )
         
@@ -262,37 +238,25 @@ class UserProgress(models.Model):
         user.save()
 
     def _check_for_new_achievements(self):
-        """
-        Sprawdza wszystkie warunki do przyznania odznak na podstawie
-        tego konkretnego (self) wyniku.
-        """
         user = self.user
         
-        # 1. Osiągnięcie: "Amator Prędkości" (300 WPM)
         if self.wpm >= 300:
             self.check_and_award_achievement(user, 'wpm_300')
             
-        # 2. Osiągnięcie: "Demon Prędkości" (800 WPM)
         if self.wpm >= 800:
             self.check_and_award_achievement(user, 'wpm_800')
 
-        # 3. Osiągnięcie: "Perfekcjonista" (100% trafności)
         if self.accuracy == 100:
             self.check_and_award_achievement(user, 'accuracy_100')
         
-        # 4. Osiągnięcie: "Maratończyk" (tekst > 800 słów)
-        if self.exercise.get_word_count() > 800:
+        # --- POPRAWKA 2 ---
+        if self.exercise.word_count > 800:
             self.check_and_award_achievement(user, 'marathoner')
             
-        # 5. NOWE Osiągnięcie: "Wojownik Dnia" (za ukończenie wyzwania)
         if self.completed_daily_challenge:
             self.check_and_award_achievement(user, 'daily_challenger')
 
     def check_and_award_achievement(self, user, achievement_slug):
-        """
-        Metoda pomocnicza: Bezpiecznie przyznaje osiągnięcie,
-        jeśli użytkownik jeszcze go nie ma.
-        """
         try:
             achievement_to_award = Achievement.objects.get(slug=achievement_slug)
             

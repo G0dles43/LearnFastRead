@@ -15,7 +15,9 @@ from .serializers import UserAchievementSerializer, QuestionSerializer, ReadingE
 import requests
 import re
 import os
-from openai import OpenAI
+import json
+import random  
+import google.generativeai as genai
 from dotenv import load_dotenv
 from django.db.models import F, Window, Q
 from django.db.models.functions import Rank
@@ -23,7 +25,15 @@ from .models import CustomUser
 from django.utils import timezone
 from datetime import timedelta
 
+
 User = get_user_model()
+
+try:
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+except Exception as e:
+    print(f"BŁĄD KRYTYCZNY: Nie udało się skonfigurować Gemini API. Sprawdź klucz API. Błąd: {e}")
+    gemini_model = None
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -37,10 +47,6 @@ class ReadingExerciseList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Zwraca listę ćwiczeń z uwzględnieniem filtrowania i sortowania.
-        Admin widzi wszystko. Zwykły user widzi publiczne + swoje prywatne.
-        """
         user = self.request.user
 
         if user.is_staff:
@@ -52,11 +58,11 @@ class ReadingExerciseList(generics.ListAPIView):
 
         show_only_my_private = self.request.query_params.get('my_private')
         if show_only_my_private == 'true':
-             queryset = ReadingExercise.objects.filter(created_by=user, is_public=False)
+            queryset = ReadingExercise.objects.filter(created_by=user, is_public=False)
 
         show_favorites = self.request.query_params.get('favorites')
         if show_favorites == 'true':
-            queryset = queryset.filter(favorited_by=user) # Filtruj wg relacji M2M
+            queryset = queryset.filter(favorited_by=user) 
 
         show_ranked = self.request.query_params.get('ranked')
         if show_ranked == 'true':
@@ -74,7 +80,7 @@ class ReadingExerciseList(generics.ListAPIView):
         elif sort_by == 'title_desc':
             queryset = queryset.order_by('-title')
         elif sort_by == 'word_count_asc':
-             queryset = queryset.order_by('word_count')
+            queryset = queryset.order_by('word_count')
         elif sort_by == 'word_count_desc':
             queryset = queryset.order_by('-word_count')
         elif sort_by == 'created_at_asc':
@@ -82,7 +88,6 @@ class ReadingExerciseList(generics.ListAPIView):
         else:
             queryset = queryset.order_by('-created_at')
 
-        # Zwróć unikalne wyniki (ważne przy filtrowaniu M2M)
         return queryset.distinct()
 
 class ReadingExerciseCreate(generics.CreateAPIView):
@@ -102,33 +107,80 @@ class ReadingExerciseDelete(generics.DestroyAPIView):
         return ReadingExercise.objects.filter(created_by=self.request.user)
 
 
-class SubmitProgress(generics.CreateAPIView):
-    serializer_class = UserProgressSerializer
+class SubmitProgress(APIView):
+    """
+    Endpoint do zapisu postępu w ćwiczeniu.
+    Cała walidacja (WPM, Accuracy) odbywa się na backendzie,
+    aby zapobiec oszustwom.
+    """
     permission_classes = [IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        user = request.user
         
-        exercise = serializer.validated_data['exercise']
-        
-        if not exercise.is_ranked:
-            return Response(
-                {"error": "Postęp tylko dla ćwiczeń ranked."},
-                status=status.HTTP_400_BAD_REQUEST
+        try:
+            exercise_id = data.get('exercise')
+            reading_time_ms = data.get('reading_time_ms')
+            answers = data.get('answers') 
+
+            if not all([exercise_id, reading_time_ms is not None, answers is not None]):
+                return Response(
+                    {"error": "Brakujące dane: exercise_id, reading_time_ms lub answers."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            exercise = ReadingExercise.objects.get(pk=exercise_id)
+            
+            if not exercise.is_ranked:
+                 return Response(
+                     {"error": "Postęp można zapisywać tylko dla ćwiczeń rankingowych."},
+                     status=status.HTTP_400_BAD_REQUEST
+                 )
+
+            if reading_time_ms <= 0: 
+                return Response({"error": "Nieprawidłowy czas czytania"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            minutes = reading_time_ms / 60000.0
+            wpm = round(exercise.word_count / minutes)
+
+            correct_questions = Question.objects.filter(exercise=exercise)
+            total_questions_count = correct_questions.count()
+            
+            accuracy = 0.0
+            if total_questions_count > 0:
+                correct_answers_count = 0
+                for question in correct_questions:
+                    user_answer = answers.get(str(question.id))
+                    
+                    if user_answer and isinstance(user_answer, str):
+                        if user_answer.strip().lower() == question.correct_answer.strip().lower():
+                            correct_answers_count += 1
+                
+                accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
+
+            progress = UserProgress(
+                user=user,
+                exercise=exercise,
+                wpm=wpm,
+                accuracy=accuracy
             )
-        
-        # Zapisz wynik (model automatycznie obsłuży counted_for_ranking)
-        progress = serializer.save()
-        
-        return Response({
-            'wpm': progress.wpm,
-            'accuracy': progress.accuracy,
-            'ranking_points': progress.ranking_points,
-            'counted_for_ranking': progress.counted_for_ranking,
-            'attempt_number': progress.attempt_number,
-            'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
-        }, status=status.HTTP_201_CREATED)
+            progress.save() 
+
+            return Response({
+                'wpm': progress.wpm,
+                'accuracy': progress.accuracy,
+                'ranking_points': progress.ranking_points,
+                'counted_for_ranking': progress.counted_for_ranking,
+                'attempt_number': progress.attempt_number,
+                'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
+            }, status=status.HTTP_201_CREATED)
+
+        except ReadingExercise.DoesNotExist:
+            return Response({"error": "Nie znaleziono ćwiczenia"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Błąd w SubmitProgress: {e}") 
+            return Response({"error": "Wystąpił wewnętrzny błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserSettingsView(APIView):
@@ -200,7 +252,7 @@ class SearchExercises(APIView):
             wiki_search_results = search_data.get('query', {}).get('search', [])
 
             if not wiki_search_results:
-                 return Response({"results": [], "message": "Wikipedia nie znalazła wyników dla tego zapytania."})
+                return Response({"results": [], "message": "Wikipedia nie znalazła wyników dla tego zapytania."})
 
             for item in wiki_search_results:
                 pageid = item['pageid']
@@ -236,18 +288,18 @@ class SearchExercises(APIView):
             return Response({"results": results})
 
         except requests.exceptions.Timeout:
-             return Response({"error": "Przekroczono limit czasu połączenia z Wikipedią."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+            return Response({"error": "Przekroczono limit czasu połączenia z Wikipedią."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
         except requests.exceptions.RequestException as e:
-             return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
-             print(f"Błąd w SearchExercises: {e}") # Tymczasowo dla debugowania
-             return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"Błąd w SearchExercises: {e}") 
+            return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
-    permission_classes = [permissions.IsAuthenticated]  
+    permission_classes = [permissions.IsAuthenticated] 
 
 
 @api_view(['POST'])
@@ -269,39 +321,46 @@ def toggle_favorite(request, pk):
         return Response({"error": "Nie znaleziono ćwiczenia"}, status=404)
 
     
+# --- POPRAWIONA SEKCJA QuestionListView ---
 class QuestionListView(generics.ListAPIView):
     serializer_class = QuestionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         exercise_id = self.kwargs['exercise_id']
-        return Question.objects.filter(exercise_id=exercise_id)
+        
+        try:
+            exercise = ReadingExercise.objects.get(pk=exercise_id)
+        except ReadingExercise.DoesNotExist:
+            return Question.objects.none()
+
+        all_questions = Question.objects.filter(exercise=exercise)
+        
+        num_to_sample = exercise.get_recommended_questions()
+
+        question_list = list(all_questions)
+        
+        if len(question_list) <= num_to_sample:
+            return question_list
+
+        return random.sample(question_list, num_to_sample)
+# --- KONIEC POPRAWIONEJ SEKCJI ---
 
 
 class LeaderboardView(APIView):
-    """
-    Zwraca globalną tabelę wyników.
-    Dane są pobierane bezpośrednio z modelu CustomUser, 
-    gdzie są aktualizowane przez UserProgress.save().
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # 1. Użyj Window function (funkcji okna), aby dodać ranking
         ranked_users_query = CustomUser.objects.annotate(
-            # Stwórz ranking na podstawie punktów (malejąco)
             rank=Window(
                 expression=Rank(),
                 order_by=F('total_ranking_points').desc()
             )
         ).filter(
-            # 2. Pokaż tylko użytkowników, którzy mają jakiekolwiek punkty
             total_ranking_points__gt=0
         ).order_by(
-            # 3. Posortuj listę według rankingu
             'rank'
         ).values(
-            # 4. Wybierz tylko te pola, które są potrzebne
             'rank',
             'username',
             'total_ranking_points',
@@ -310,14 +369,12 @@ class LeaderboardView(APIView):
             'ranking_exercises_completed'
         )
 
-        # Formatowanie danych dla frontendu
         leaderboard_data = []
         for user_data in ranked_users_query:
             leaderboard_data.append({
                 'rank': user_data['rank'],
                 'username': user_data['username'],
                 'total_points': user_data['total_ranking_points'],
-                # Zaokrąglenie dla ładniejszego wyświetlania
                 'average_wpm': round(user_data['average_wpm']),
                 'average_accuracy': round(user_data['average_accuracy'], 1),
                 'exercises_completed': user_data['ranking_exercises_completed'],
@@ -327,10 +384,6 @@ class LeaderboardView(APIView):
 
 
 class MyStatsView(APIView):
-    """
-    Zwraca szczegółowe statystyki zalogowanego użytkownika
-    oraz jego ostatnie próby rankingowe.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -348,7 +401,7 @@ class MyStatsView(APIView):
         user_rank = user_rank_data['rank'] if user_rank_data else 0
         
         if user_rank_data and user_rank_data['total_ranking_points'] == 0:
-             user_rank = "N/A" # Lub 0, zależy jak chcesz to pokazać
+            user_rank = "N/A"
 
         recent_results_query = UserProgress.objects.filter(
             user=user,
@@ -377,9 +430,6 @@ class MyStatsView(APIView):
         return Response(stats)
 
 class UserAchievementsView(APIView):
-    """
-    Zwraca listę osiągnięć zdobytych przez zalogowanego użytkownika.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -388,6 +438,7 @@ class UserAchievementsView(APIView):
         serializer = UserAchievementSerializer(unlocked_achievements, many=True)
         return Response(serializer.data)
 
+# --- POPRAWIONA SEKCJA ExerciseAttemptStatusView ---
 class ExerciseAttemptStatusView(APIView):
     """
     Sprawdź czy użytkownik może zdobyć punkty rankingowe dla danego ćwiczenia
@@ -408,23 +459,31 @@ class ExerciseAttemptStatusView(APIView):
         if not exercise.is_ranked:
             return Response({
                 "can_rank": False,
+                "is_training_mode": False, 
                 "message": "To ćwiczenie nie jest rankingowe"
             })
 
-        # Sprawdź ostatni wynik rankingowy
-        one_month_ago = timezone.now() - timedelta(days=30)
         last_ranked = UserProgress.objects.filter(
             user=user,
             exercise=exercise,
-            counted_for_ranking=True,
-            completed_at__gte=one_month_ago
-        ).first()
+            counted_for_ranking=True
+        ).order_by('-completed_at').first()
 
-        if last_ranked:
+        if not last_ranked:
+            return Response({
+                "can_rank": True,
+                "is_training_mode": False,
+                "message": "Pierwsze podejście - wynik będzie liczony do rankingu!"
+            })
+
+        one_month_ago = timezone.now() - timedelta(days=30)
+        
+        if last_ranked.completed_at >= one_month_ago:
             days_left = 30 - (timezone.now() - last_ranked.completed_at).days
             return Response({
                 "can_rank": False,
-                "message": f"Możesz poprawić wynik rankingowy za {days_left} dni",
+                "is_training_mode": True,
+                "message": f"Tryb treningowy - możesz poprawić wynik za {days_left} dni",
                 "ranked_result": {
                     "wpm": last_ranked.wpm,
                     "accuracy": last_ranked.accuracy,
@@ -432,17 +491,21 @@ class ExerciseAttemptStatusView(APIView):
                     "completed_at": last_ranked.completed_at.isoformat()
                 }
             })
-
-        return Response({
-            "can_rank": True,
-            "message": "Ten wynik będzie liczony do rankingu!"
-        })
+        else:
+            return Response({
+                "can_rank": True,
+                "is_training_mode": False,
+                "message": "Możesz poprawić swój wynik rankingowy!",
+                "ranked_result": {
+                    "wpm": last_ranked.wpm,
+                    "accuracy": last_ranked.accuracy,
+                    "points": last_ranked.ranking_points,
+                    "completed_at": last_ranked.completed_at.isoformat()
+                }
+            })
+# --- KONIEC POPRAWIONEJ SEKCJI ---
     
 class TodayChallengeView(APIView):
-    """
-    Zwraca dzisiejsze wyzwanie (ćwiczenie) oraz status,
-    czy zalogowany użytkownik już je dzisiaj ukończył.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -471,27 +534,78 @@ class TodayChallengeView(APIView):
         })   
     
 class UserProgressHistoryView(APIView):
-    """
-    Zwraca historię wszystkich wyników rankingowych użytkownika
-    dla potrzeb wykresów.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-
-        # Pobierz wszystkie rekordy rankingowe, posortowane od najstarszego
-        # Wybieramy tylko potrzebne pola za pomocą .values() dla wydajności
         progress_history = UserProgress.objects.filter(
             user=user,
-            counted_for_ranking=True # Tylko wyniki rankingowe
-        ).order_by('completed_at').values( # Sortuj od najstarszego
+            counted_for_ranking=True 
+        ).order_by('completed_at').values(
             'completed_at', 
             'wpm', 
             'accuracy'
         )
-
-        # Konwertuj QuerySet na listę słowników (gotowe do JSON)
         data = list(progress_history)
-
         return Response(data)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_ai_questions(request):
+    """
+    Endpoint do generowania pytań z tekstu przy użyciu Gemini AI.
+    """
+    if not gemini_model:
+        return Response(
+            {"error": "Model AI nie jest dostępny lub nie został poprawnie skonfigurowany."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if not request.user.is_staff:
+         return Response(
+            {"error": "Tylko administratorzy mogą generować pytania AI."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        content = request.data.get('content')
+        topic = request.data.get('topic', 'Temat ogólny')
+        count = int(request.data.get('count', 15))
+
+        if not content or len(content) < 50:
+            return Response(
+                {"error": "Materiał źródłowy (content) jest wymagany i musi mieć co najmniej 50 znaków."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        prompt = f"""
+        Jesteś asystentem edukacyjnym. Twoim zadaniem jest wygenerowanie {count} pytań otwartych
+        z podanego materiału źródłowego. Odpowiedzi muszą być BARDZO KRÓTKIE (1-3 słowa).
+
+        Pytania mają dotyczyć tematu: "{topic}".
+        Zawsze zwracaj odpowiedź wyłącznie jako tablicę obiektów JSON, bez żadnego dodatkowego tekstu.
+        Format JSON: [ {{ "question": "...", "answer": "..." }} ]
+
+        Oto materiał źródłowy:
+        ---
+        {content}
+        ---
+
+        Oczekiwany JSON:
+        """
+
+        response = gemini_model.generate_content(prompt)
+        ai_response_text = response.text
+
+        cleaned_text = re.sub(r'```json\n|```', '', ai_response_text).strip()
+        
+        questions_json = json.loads(cleaned_text)
+
+        return Response(questions_json, status=status.HTTP_200_OK)
+
+    except json.JSONDecodeError:
+        print(f"Błąd parsowania JSON od AI: {ai_response_text}")
+        return Response({"error": "AI zwróciło niepoprawny format danych."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        print(f"Błąd w generate_ai_questions: {e}")
+        return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
