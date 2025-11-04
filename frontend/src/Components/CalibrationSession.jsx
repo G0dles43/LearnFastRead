@@ -21,7 +21,6 @@ export default function CalibrationSession() {
   const token = localStorage.getItem("access");
   const speedMsRef = useRef(wpmToMs(currentWpm));
 
-  // Pobieranie tekstu
   useEffect(() => {
     if (!token) {
       navigate('/login');
@@ -42,7 +41,6 @@ export default function CalibrationSession() {
     });
   }, [token, navigate]);
 
-  // Główny Timer
   useEffect(() => {
     if (isLoading || isFinished || words.length === 0 || index >= words.length - 1) {
       clearTimeout(timerRef.current);
@@ -65,7 +63,6 @@ export default function CalibrationSession() {
     return () => clearTimeout(timerRef.current);
   }, [words, isLoading, isFinished, index]);
 
-  // Zmiana prędkości
   const changeSpeed = useCallback((deltaWpm) => {
     setCurrentWpm(prevWpm => {
       const newWpm = Math.max(50, Math.min(1500, prevWpm + deltaWpm));
@@ -77,7 +74,6 @@ export default function CalibrationSession() {
   const increaseSpeed = () => changeSpeed(WPM_STEP);
   const decreaseSpeed = () => changeSpeed(-WPM_STEP);
 
-  // Obsługa klawiatury
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (isFinished) return;
@@ -91,13 +87,11 @@ export default function CalibrationSession() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFinished, increaseSpeed, decreaseSpeed]);
 
-  // Zakończenie
   const handleFinish = () => {
     clearTimeout(timerRef.current);
     setIsFinished(true);
   };
 
-  // Zapis
   const handleSaveSpeed = () => {
     const speedMsToSend = wpmToMs(currentWpm);
     axios.patch("http://127.0.0.1:8000/api/user/settings/",
@@ -111,7 +105,6 @@ export default function CalibrationSession() {
     .catch(() => alert("Błąd zapisu ustawień."));
   };
 
-  // Loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -127,9 +120,7 @@ export default function CalibrationSession() {
     <div className="page-wrapper">
       <div className="container max-w-5xl">
         {!isFinished ? (
-          // Ekran Kalibracji
           <div className="animate-fade-in">
-            {/* Header */}
             <div className="text-center mb-8">
               <h1 className="text-gradient text-5xl font-bold mb-4">
                 Kalibracja Prędkości
@@ -140,13 +131,11 @@ export default function CalibrationSession() {
               </p>
             </div>
 
-            {/* RSVP Reader */}
             <div className="mb-8">
               <RSVPReader currentWord={words[index]} />
             </div>
 
-            {/* Speed Controls */}
-            <div className="card card-elevated mb-6 p-8">
+            <div className="mb-6 p-8">
               <div className="flex items-center justify-center gap-6">
                 <button 
                   onClick={decreaseSpeed}
@@ -179,7 +168,6 @@ export default function CalibrationSession() {
               
             </div>
 
-            {/* Finish Button */}
             <div className="text-center">
               <button 
                 onClick={handleFinish}
@@ -194,10 +182,8 @@ export default function CalibrationSession() {
             </div>
           </div>
         ) : (
-          // Ekran Wyników
           <div className="animate-fade-in">
             <div className="card card-gradient max-w-2xl mx-auto text-center p-12">
-              {/* Success Icon */}
               <div className="mb-6 flex justify-center">
                 <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center animate-pulse">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
@@ -215,7 +201,6 @@ export default function CalibrationSession() {
                 Twoje komfortowe tempo czytania to:
               </p>
 
-              {/* WPM Display */}
               <div className="my-8 p-8 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl border border-white/10">
                 <div className="text-7xl font-bold text-gradient mb-2">
                   {currentWpm}

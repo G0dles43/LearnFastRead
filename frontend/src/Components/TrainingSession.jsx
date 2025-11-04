@@ -153,7 +153,6 @@ export default function TrainingSession() {
     }
   }, [index, words, speed, isMuted, isPaused, mode, hasEnded, chunkSize]);
 
-  // --- POPRAWIONA FUNKCJA finishExercise ---
   const finishExercise = () => {
     setHasEnded(true);
     const endTime = Date.now();
@@ -444,7 +443,6 @@ export default function TrainingSession() {
               </div>
             </div>
 
-            {/* Words remaining card */}
             <div className="card p-5">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-[#059669] flex items-center justify-center">

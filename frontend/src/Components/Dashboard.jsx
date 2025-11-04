@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import DailyChallenge from "./DailyChallenge.jsx";
@@ -8,7 +8,6 @@ import ExerciseFilterSidebar from "./ExerciseFilterSidebar.jsx";
 import ExerciseList from "./ExerciseList.jsx";
 import RankedWarningModal from "./RankedWarningModal.jsx";
 import CollectionList from "./CollectionList.jsx";
-
 
 export default function Dashboard({ api }) {
   const [exercises, setExercises] = useState([]);
@@ -32,7 +31,6 @@ export default function Dashboard({ api }) {
     my_private: false,
   });
   const [sortBy, setSortBy] = useState('-created_at');
-
 
   const handleStartExercise = (exercise) => {
     if (exercise.is_ranked) {
@@ -61,22 +59,21 @@ export default function Dashboard({ api }) {
 
   useEffect(() => {
     if (!token || !api) {
-        setStatusLoading(false);
-        return;
+      setStatusLoading(false);
+      return;
     }
     
     setStatusLoading(true);
     api.get("user/status/")
-        .then(res => {
-            setUserStatus(res.data);
-        })
-        .catch(err => {
-            console.error("Nie udało się pobrać statusu użytkownika", err);
-        })
-        .finally(() => {
-            setStatusLoading(false);
-        });
-
+      .then(res => {
+        setUserStatus(res.data);
+      })
+      .catch(err => {
+        console.error("Nie udało się pobrać statusu użytkownika", err);
+      })
+      .finally(() => {
+        setStatusLoading(false);
+      });
   }, [token, api]);
 
   useEffect(() => {
@@ -109,13 +106,13 @@ export default function Dashboard({ api }) {
       setLoadingExercises(true);
       const params = { ...filterOptions, sort_by: sortBy };
       Object.keys(params).forEach(key => {
-         if (key === 'favorites' || key === 'ranked' || key === 'my_private') {
-            if (params[key] === true) {
-                params[key] = 'true';
-            } else {
-                delete params[key]; 
-            }
-         }
+        if (key === 'favorites' || key === 'ranked' || key === 'my_private') {
+          if (params[key] === true) {
+            params[key] = 'true';
+          } else {
+            delete params[key]; 
+          }
+        }
       });
 
       try {
@@ -148,7 +145,7 @@ export default function Dashboard({ api }) {
         )
       );
       if (filterOptions.favorites) {
-         setExercises(prev => prev.filter(ex => ex.id !== id));
+        setExercises(prev => prev.filter(ex => ex.id !== id));
       }
     } catch (err) {
       console.error("Błąd aktualizacji ulubionych:", err);
@@ -194,31 +191,39 @@ export default function Dashboard({ api }) {
             isLoading={statusLoading}
         />
 
-       <QuickActions 
+        <QuickActions 
           isAdmin={userStatus?.is_admin || false} 
           isLoading={statusLoading}
         />
 
+        {/* Sekcje pełnej szerokości */}
         <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <DailyChallenge />
         </div>
+        
+        <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <CollectionList 
+            collections={collections}
+            loading={loadingCollections}
+          />
+        </div>
 
-        <CollectionList 
-          collections={collections}
-          loading={loadingCollections}
-        />
+        <div className="divider" /> 
 
-        <div className="divider" />
-
+        {/* Główna siatka (Sidebar + Lista ćwiczeń) */}
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 mt-12 items-start">
           
-          <ExerciseFilterSidebar
-            filterOptions={filterOptions}
-            onFilterChange={handleFilterChange}
-            sortBy={sortBy}
-            onSortChange={handleSortChange}
-          />
+          {/* Kolumna 1: Sidebar (z animacją i sticky) */}
+          <aside className="animate-fade-in sticky top-8" style={{ animationDelay: '0.4s' }}>
+            <ExerciseFilterSidebar
+              filterOptions={filterOptions}
+              onFilterChange={handleFilterChange}
+              sortBy={sortBy}
+              onSortChange={handleSortChange}
+            />
+          </aside>
 
+          {/* Kolumna 2: Lista ćwiczeń (ma własną animację wewnątrz) */}
           <ExerciseList
             loading={loadingExercises}
             exercises={exercises}
