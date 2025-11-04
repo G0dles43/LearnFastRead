@@ -9,7 +9,7 @@ def get_today_challenge():
     Zwraca obiekt ReadingExercise lub None.
     """
     try:
-        return ReadingExercise.objects.get(id=17) 
+        return ReadingExercise.objects.get(id=36) 
     except ReadingExercise.DoesNotExist:
         return None 
     # eligible_exercises = ReadingExercise.objects.filter(
