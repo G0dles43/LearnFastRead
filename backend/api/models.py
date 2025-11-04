@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Sum, Avg, Count
+from django.utils.text import slugify
 
 class CustomUser(AbstractUser):
     speed = models.IntegerField(default=200)
@@ -24,6 +25,10 @@ class CustomUser(AbstractUser):
     ranking_exercises_completed = models.IntegerField(default=0)
     average_wpm = models.FloatField(default=0)
     average_accuracy = models.FloatField(default=0)
+
+    current_streak = models.IntegerField(default=0, help_text="Aktualna seria codziennych treningów")
+    max_streak = models.IntegerField(default=0, help_text="Najdłuższa osiągnięta seria")
+    last_streak_date = models.DateField(null=True, blank=True, help_text="Data ostatniego zaliczonego treningu w serii")
 
 class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
@@ -119,7 +124,6 @@ class UserProgress(models.Model):
         if self.accuracy < 60:
             return 0
         
-        # --- POPRAWKA 1 ---
         word_count = self.exercise.word_count 
         
         if word_count <= 300:
@@ -148,7 +152,7 @@ class UserProgress(models.Model):
         """
         old_ranked_attempt_to_deactivate = None
         
-        if not self.pk:  # Logika uruchamiana tylko przy tworzeniu nowego rekordu
+        if not self.pk:  
             old_ranked_attempt_to_deactivate = self._handle_ranking_eligibility()
             
             if self.counted_for_ranking:
@@ -163,9 +167,13 @@ class UserProgress(models.Model):
             old_ranked_attempt_to_deactivate.counted_for_ranking = False
             old_ranked_attempt_to_deactivate.save()
             
+        self._update_user_streak()
+
         if self.counted_for_ranking:
             self.update_user_stats()
             self._check_for_new_achievements()
+        else:
+            self.user.save()
 
     def _handle_ranking_eligibility(self):
         previous_attempts = UserProgress.objects.filter(
@@ -202,6 +210,26 @@ class UserProgress(models.Model):
         else:
             self.ranking_points = base_points
             self.completed_daily_challenge = False
+    
+    def _update_user_streak(self):
+        """
+        Aktualizuje serię (streak) użytkownika.
+        Wywoływane przy KAŻDYM zapisie UserProgress (rankingowym lub nie).
+        Zakłada, że metoda nadrzędna (save) zapisze zmiany na self.user.
+        """
+        user = self.user
+        today = timezone.now().date()
+        
+        if user.last_streak_date == today:
+            return
+
+        if user.last_streak_date == (today - timedelta(days=1)):
+            user.current_streak += 1
+        else:
+            user.current_streak = 1
+
+        user.last_streak_date = today
+        user.max_streak = max(user.current_streak, user.max_streak)
 
     def update_user_stats(self):
         user = self.user
@@ -288,3 +316,46 @@ class UserAchievement(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.achievement.title}"
+    
+class ExerciseCollection(models.Model):
+    title = models.CharField(max_length=150)
+    slug = models.SlugField(unique=True, max_length=170, blank=True)
+    description = models.TextField(blank=True, help_text="Opis kolekcji")
+    
+    exercises = models.ManyToManyField(
+        ReadingExercise,
+        related_name='collections',
+        blank=True,
+        help_text="Ćwiczenia zawarte w tej kolekcji"
+    )
+    
+    created_by = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='collections'
+    )
+    
+    icon_name = models.CharField(max_length=50, default="📚", help_text="Emoji lub nazwa ikony")
+    is_public = models.BooleanField(default=False, help_text="Czy kolekcja jest widoczna dla wszystkich?")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)
+            slug = base_slug
+            counter = 1
+            while ExerciseCollection.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

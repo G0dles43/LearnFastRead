@@ -1,11 +1,30 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function QuickActions() {
+export default function QuickActions({ isAdmin, isLoading }) { 
   const navigate = useNavigate();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+    <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-8 animate-fade-in`} style={{ animationDelay: '0.1s' }}>
+      
+      {!isLoading && isAdmin && (
+        <button
+          className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-success"
+          onClick={() => navigate("/manage-collections")}
+        >
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-success to-[#059669] flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+            </svg>
+          </div>
+          <div className="text-left">
+            <h3 className="text-lg mb-1">Kolekcje</h3>
+            <p className="text-text-secondary text-sm">(Admin) Zarządzaj</p>
+          </div>
+        </button>
+      )}
+      
       <button
         className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-primary"
         onClick={() => navigate("/create-exercise")}

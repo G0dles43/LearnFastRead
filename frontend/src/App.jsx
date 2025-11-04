@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import "./App.css";
-import Login from "./Components/Login.jsx"; // Użyj .jsx jeśli tak masz
+import Login from "./Components/Login.jsx"; 
 import Register from "./Components/Register.jsx";
 import Home from "./Components/Home.jsx";
 import Dashboard from "./Components/Dashboard.jsx";
@@ -10,6 +10,9 @@ import ExerciseCreator from "./Components/ExerciseCreator.jsx";
 import Leaderboard from "./Components/Leaderboard.jsx";
 import CalibrationSession from "./Components/CalibrationSession.jsx";
 import HowItWorks from "./Components/HowItWorks.jsx";
+import CollectionManager from "./Components/CollectionManager.jsx";
+import CollectionForm from "./Components/CollectionForm.jsx";
+import CollectionDetail from "./Components/CollectionDetail.jsx";
 
 import axios from "axios";
 import { useState, useEffect } from "react"; 
@@ -116,6 +119,10 @@ function App() {
         <Route path="/ranking" element={<Leaderboard api={apiInstance} />} />
         <Route path="/calibrate" element={<CalibrationSession api={apiInstance} />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/manage-collections" element={<CollectionManager api={apiInstance} />} />
+        <Route path="/manage-collections/new" element={<CollectionForm api={apiInstance} />} />
+        <Route path="/manage-collections/:slug" element={<CollectionForm api={apiInstance} />} />
+        <Route path="/collections/:slug" element={<CollectionDetail api={apiInstance} />} />
       </Routes>
     </>
   );

@@ -4,7 +4,7 @@ from .views import (
     UserAchievementsView, UserStatusView, toggle_favorite, LeaderboardView, 
     MyStatsView, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, 
     ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, 
-    ReadingExerciseList, SubmitProgress
+    ReadingExerciseList, SubmitProgress, CollectionListView, CollectionDetailView
 )
 from .views import MyTokenObtainPairView  
 from rest_framework_simplejwt.views import (
@@ -41,4 +41,7 @@ urlpatterns = [
     path('user/progress-history/', UserProgressHistoryView.as_view(), name='user-progress-history'),
 
     path('ai/generate-questions/', generate_ai_questions, name='ai-generate-questions'),
+
+    path('collections/', CollectionListView.as_view(), name='collection-list'),
+    path('collections/<slug:slug>/', CollectionDetailView.as_view(), name='collection-detail'),
 ]

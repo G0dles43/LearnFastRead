@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import ReadingExercise, Question, UserProgress, UserAchievement
+from .models import ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,13 +11,14 @@ from rest_framework import status, serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
 from .services import get_today_challenge
-from .serializers import UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from .serializers import ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
 import os
 import json
 import random  
 import google.generativeai as genai
+from rest_framework.exceptions import PermissionDenied
 from dotenv import load_dotenv
 from django.db.models import F, Window, Q
 from django.db.models.functions import Rank
@@ -109,9 +110,10 @@ class ReadingExerciseDelete(generics.DestroyAPIView):
 
 class SubmitProgress(APIView):
     """
+    --- POPRAWKA ---
     Endpoint do zapisu postępu w ćwiczeniu.
-    Cała walidacja (WPM, Accuracy) odbywa się na backendzie,
-    aby zapobiec oszustwom.
+    Obsługuje zarówno ćwiczenia RANKINGOWE (z quizem) 
+    jak i TRENINGOWE (bez quizu - dla streaka).
     """
     permission_classes = [IsAuthenticated]
 
@@ -122,42 +124,52 @@ class SubmitProgress(APIView):
         try:
             exercise_id = data.get('exercise')
             reading_time_ms = data.get('reading_time_ms')
+            
+            # Odpowiedzi są teraz OPCJONALNE (mogą być puste dla treningu)
             answers = data.get('answers') 
 
-            if not all([exercise_id, reading_time_ms is not None, answers is not None]):
+            # Sprawdzamy tylko podstawowe dane
+            if not all([exercise_id, reading_time_ms is not None]):
                 return Response(
-                    {"error": "Brakujące dane: exercise_id, reading_time_ms lub answers."},
+                    {"error": "Brakujące dane: exercise_id lub reading_time_ms."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             exercise = ReadingExercise.objects.get(pk=exercise_id)
             
-            if not exercise.is_ranked:
-                 return Response(
-                     {"error": "Postęp można zapisywać tylko dla ćwiczeń rankingowych."},
-                     status=status.HTTP_400_BAD_REQUEST
-                 )
-
             if reading_time_ms <= 0: 
                 return Response({"error": "Nieprawidłowy czas czytania"}, status=status.HTTP_400_BAD_REQUEST)
                 
             minutes = reading_time_ms / 60000.0
             wpm = round(exercise.word_count / minutes)
 
-            correct_questions = Question.objects.filter(exercise=exercise)
-            total_questions_count = correct_questions.count()
-            
-            accuracy = 0.0
-            if total_questions_count > 0:
-                correct_answers_count = 0
-                for question in correct_questions:
-                    user_answer = answers.get(str(question.id))
-                    
-                    if user_answer and isinstance(user_answer, str):
-                        if user_answer.strip().lower() == question.correct_answer.strip().lower():
-                            correct_answers_count += 1
+            # Domyślna trafność dla ćwiczeń treningowych
+            accuracy = 0.0 
+
+            # --- POPRAWIONA LOGIKA WALIDACJI ---
+            # Jeśli ćwiczenie jest rankingowe, MUSIMY mieć odpowiedzi i obliczyć trafność
+            if exercise.is_ranked:
+                if answers is None: # Musi być słownik (nawet pusty), ale nie None
+                     return Response(
+                        {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 
-                accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
+                correct_questions = Question.objects.filter(exercise=exercise)
+                total_questions_count = correct_questions.count()
+                
+                if total_questions_count > 0:
+                    correct_answers_count = 0
+                    for question in correct_questions:
+                        user_answer = answers.get(str(question.id))
+                        
+                        if user_answer and isinstance(user_answer, str):
+                            if user_answer.strip().lower() == question.correct_answer.strip().lower():
+                                correct_answers_count += 1
+                    
+                    accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
+            
+            # Dla treningu (nierankingowego), 'accuracy' po prostu pozostanie 0.0
 
             progress = UserProgress(
                 user=user,
@@ -165,16 +177,28 @@ class SubmitProgress(APIView):
                 wpm=wpm,
                 accuracy=accuracy
             )
+            # Metoda save() w modelu zajmie się logiką STREAK oraz RANKINGU
             progress.save() 
 
-            return Response({
-                'wpm': progress.wpm,
-                'accuracy': progress.accuracy,
-                'ranking_points': progress.ranking_points,
-                'counted_for_ranking': progress.counted_for_ranking,
-                'attempt_number': progress.attempt_number,
-                'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
-            }, status=status.HTTP_201_CREATED)
+            # Zwracamy różne odpowiedzi w zależności od typu ćwiczenia
+            if exercise.is_ranked:
+                return Response({
+                    'wpm': progress.wpm,
+                    'accuracy': progress.accuracy,
+                    'ranking_points': progress.ranking_points,
+                    'counted_for_ranking': progress.counted_for_ranking,
+                    'attempt_number': progress.attempt_number,
+                    'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
+                }, status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    'wpm': progress.wpm,
+                    'accuracy': progress.accuracy,
+                    'ranking_points': 0,
+                    'counted_for_ranking': False,
+                    'attempt_number': progress.attempt_number,
+                    'message': f'Trening ukończony! Twoja seria została zaktualizowana. (WPM: {progress.wpm})'
+                }, status=status.HTTP_201_CREATED)
 
         except ReadingExercise.DoesNotExist:
             return Response({"error": "Nie znaleziono ćwiczenia"}, status=status.HTTP_404_NOT_FOUND)
@@ -199,16 +223,15 @@ class UserSettingsView(APIView):
 
 
 class UserStatusView(APIView):
+    """
+    Zwraca kluczowe dane użytkownika, w tym status admina i serię (streak).
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        return Response({
-            'username': user.username,
-            'is_staff': user.is_staff,
-            'is_superuser': user.is_superuser,
-            'is_admin': user.is_staff or user.is_superuser
-        })
+        serializer = UserStatusSerializer(user)
+        return Response(serializer.data)
 
 
 class SearchExercises(APIView):
@@ -549,6 +572,55 @@ class UserProgressHistoryView(APIView):
         data = list(progress_history)
         return Response(data)
     
+class CollectionListView(generics.ListCreateAPIView):
+    """
+    API do listowania i tworzenia kolekcji.
+    Zwraca tylko kolekcje publiczne LUB własne danego użytkownika.
+    """
+    serializer_class = ExerciseCollectionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return ExerciseCollection.objects.filter(
+            Q(is_public=True) | Q(created_by=user)
+        ).distinct().prefetch_related('exercises') 
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    API do pobierania, edycji i usuwania JEDNEJ kolekcji.
+    Używa 'slug' jako klucza wyszukiwania.
+    """
+    serializer_class = ExerciseCollectionSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'slug' 
+
+    def get_queryset(self):
+        user = self.request.user
+        return ExerciseCollection.objects.filter(
+            Q(is_public=True) | Q(created_by=user)
+        ).distinct().prefetch_related('exercises')
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+    def perform_update(self, serializer):
+        collection = self.get_object()
+        if collection.created_by != self.request.user and not self.request.user.is_staff:
+            raise PermissionDenied("Możesz edytować tylko własne kolekcje.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.created_by != self.request.user and not self.request.user.is_staff:
+            raise PermissionDenied("Możesz usuwać tylko własne kolekcje.")
+        instance.delete()
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_ai_questions(request):
@@ -609,3 +681,5 @@ def generate_ai_questions(request):
     except Exception as e:
         print(f"Błąd w generate_ai_questions: {e}")
         return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+

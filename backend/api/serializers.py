@@ -1,15 +1,31 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement
+from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement, ExerciseCollection
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-# --- DODANE IMPORTY ---
 from django.utils import timezone
 from datetime import timedelta
-# --- KONIEC DODANYCH IMPORTÓW ---
+from django.db.models import Sum
+
 
 User = get_user_model()
 
+class UserStatusSerializer(serializers.ModelSerializer):
+    """
+    Zwraca kluczowe informacje o statusie użytkownika, w tym serię (streak).
+    """
+    is_admin = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'username', 'is_staff', 'is_superuser', 'is_admin', 
+            'current_streak', 'max_streak'
+        ]
+
+    def get_is_admin(self, obj):
+        return obj.is_staff or obj.is_superuser
+    
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -53,7 +69,6 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
     is_favorite = serializers.SerializerMethodField()
     created_by_is_admin = serializers.SerializerMethodField()
     
-    # --- ZMIANA 1: Dodaj nowe pole ---
     user_attempt_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -61,7 +76,7 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'text', 'created_at', 'is_public', 'is_ranked', 
                   'created_by', 'created_by_id', 'word_count', 'questions', 
                   'is_favorite', 'created_by_is_admin',
-                  'user_attempt_status' # <-- ZMIANA 2: Dodaj pole do listy
+                  'user_attempt_status' 
                  ]
         read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
@@ -76,7 +91,6 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
             return obj.created_by.is_staff 
         return False 
     
-    # --- ZMIANA 3: Dodaj nową metodę ---
     def get_user_attempt_status(self, obj):
         """
         Sprawdza status rankingu użytkownika dla tego ćwiczenia.
@@ -145,3 +159,49 @@ class UserAchievementSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAchievement
         fields = ['achievement', 'unlocked_at']
+
+class ExerciseCollectionSerializer(serializers.ModelSerializer):
+    """
+    Serializer dla modelu ExerciseCollection.
+    Zagnieżdża pełny ReadingExerciseSerializer, aby przekazać kontekst.
+    """
+    exercises = ReadingExerciseSerializer(many=True, read_only=True)
+    
+    exercise_ids = serializers.PrimaryKeyRelatedField(
+        queryset=ReadingExercise.objects.all(),
+        source='exercises',
+        many=True,
+        write_only=True,
+        required=False 
+    )
+
+    created_by_username = serializers.ReadOnlyField(source='created_by.username')
+    exercise_count = serializers.SerializerMethodField()
+    total_words = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExerciseCollection
+        fields = [
+            'id', 'title', 'slug', 'description', 'icon_name', 
+            'is_public', 'created_at', 'created_by_username',
+            'exercise_count', 'total_words', 
+            'exercises',      
+            'exercise_ids'    
+        ]
+        read_only_fields = ['slug']
+
+    def get_exercise_count(self, obj):
+        return obj.exercises.count()
+
+    def get_total_words(self, obj):
+        return obj.exercises.aggregate(total=Sum('word_count'))['total'] or 0
+    
+    def validate(self, data):
+        user = self.context['request'].user
+        
+        if 'is_public' in data and data.get('is_public') == True:
+            if not user.is_staff:
+                raise serializers.ValidationError(
+                    "Tylko administratorzy mogą tworzyć kolekcje publiczne."
+                )
+        return data

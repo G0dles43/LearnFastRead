@@ -2,13 +2,13 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import DailyChallenge from "./DailyChallenge.jsx";
-
-// <<< NOWE IMPORTY KOMPONENTÓW >>>
 import DashboardHeader from "./DashboardHeader.jsx";
 import QuickActions from "./QuickActions.jsx";
 import ExerciseFilterSidebar from "./ExerciseFilterSidebar.jsx";
 import ExerciseList from "./ExerciseList.jsx";
 import RankedWarningModal from "./RankedWarningModal.jsx";
+import CollectionList from "./CollectionList.jsx";
+
 
 export default function Dashboard({ api }) {
   const [exercises, setExercises] = useState([]);
@@ -16,8 +16,13 @@ export default function Dashboard({ api }) {
   const token = localStorage.getItem("access");
   const [loggedInUserId, setLoggedInUserId] = useState(null);
   const [loadingExercises, setLoadingExercises] = useState(true);
-  const [userName, setUserName] = useState("");
 
+  const [userStatus, setUserStatus] = useState(null); 
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  const [collections, setCollections] = useState([]);
+  const [loadingCollections, setLoadingCollections] = useState(true);
+  
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
 
@@ -28,7 +33,6 @@ export default function Dashboard({ api }) {
   });
   const [sortBy, setSortBy] = useState('-created_at');
 
-  // --- LOGIKA BEZ ZMIAN ---
 
   const handleStartExercise = (exercise) => {
     if (exercise.is_ranked) {
@@ -48,13 +52,51 @@ export default function Dashboard({ api }) {
       try {
         const decodedToken = jwtDecode(token);
         setLoggedInUserId(decodedToken.user_id);
-        setUserName(decodedToken.username || "Użytkowniku");
       } catch (error) {
         console.error("Błąd dekodowania tokenu:", error);
         localStorage.clear();
       }
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !api) {
+        setStatusLoading(false);
+        return;
+    }
+    
+    setStatusLoading(true);
+    api.get("user/status/")
+        .then(res => {
+            setUserStatus(res.data);
+        })
+        .catch(err => {
+            console.error("Nie udało się pobrać statusu użytkownika", err);
+        })
+        .finally(() => {
+            setStatusLoading(false);
+        });
+
+  }, [token, api]);
+
+  useEffect(() => {
+    if (!token || !api) {
+      setLoadingCollections(false);
+      return;
+    }
+    
+    setLoadingCollections(true);
+    api.get("collections/")
+      .then(res => {
+        setCollections(res.data); 
+      })
+      .catch(err => {
+        console.error("Nie udało się pobrać kolekcji:", err);
+      })
+      .finally(() => {
+        setLoadingCollections(false);
+      });
+  }, [token, api]);
 
   useEffect(() => {
     if (!api) {
@@ -66,13 +108,12 @@ export default function Dashboard({ api }) {
     async function fetchExercises() {
       setLoadingExercises(true);
       const params = { ...filterOptions, sort_by: sortBy };
-      // Normalizuj parametry boolean na stringi 'true'/'false' lub usuń
       Object.keys(params).forEach(key => {
          if (key === 'favorites' || key === 'ranked' || key === 'my_private') {
             if (params[key] === true) {
                 params[key] = 'true';
             } else {
-                delete params[key]; // Usuń jeśli false, aby nie wysyłać ?favorites=false
+                delete params[key]; 
             }
          }
       });
@@ -106,7 +147,6 @@ export default function Dashboard({ api }) {
           ex.id === id ? { ...ex, is_favorite: !ex.is_favorite } : ex
         )
       );
-      // Odśwież listę jeśli filtrujemy po ulubionych
       if (filterOptions.favorites) {
          setExercises(prev => prev.filter(ex => ex.id !== id));
       }
@@ -128,7 +168,6 @@ export default function Dashboard({ api }) {
     }
   };
 
-  // Ta funkcja obsługuje teraz nasz nowy komponent filtrów
   const handleFilterChange = (filterName) => {
     setFilterOptions(prev => ({
       ...prev,
@@ -145,18 +184,31 @@ export default function Dashboard({ api }) {
     navigate(`/training/${selectedExercise.id}`);
   };
 
-  // --- NOWY, CZYSTY RENDER ---
   return (
     <div className="page-wrapper">
       <div className="container">
         
-        <DashboardHeader userName={userName} />
+        <DashboardHeader 
+            userName={userStatus?.username || "..."} 
+            currentStreak={userStatus?.current_streak || 0}
+            isLoading={statusLoading}
+        />
 
-        <QuickActions />
+       <QuickActions 
+          isAdmin={userStatus?.is_admin || false} 
+          isLoading={statusLoading}
+        />
 
         <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <DailyChallenge />
         </div>
+
+        <CollectionList 
+          collections={collections}
+          loading={loadingCollections}
+        />
+
+        <div className="divider" />
 
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 mt-12 items-start">
           
