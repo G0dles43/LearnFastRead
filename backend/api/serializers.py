@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import ReadingExercise, UserProgress, Question, Achievement, UserAchievement, ExerciseCollection
+from .models import Friendship, ReadingExercise, UserProgress, Question, Achievement, UserAchievement, ExerciseCollection
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils import timezone
@@ -9,6 +9,14 @@ from django.db.models import Sum
 
 
 User = get_user_model()
+
+class BasicUserSerializer(serializers.ModelSerializer):
+    """
+    Prosty serializer zwracający tylko publiczne dane użytkownika.
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'username']
 
 class UserStatusSerializer(serializers.ModelSerializer):
     """
@@ -25,7 +33,30 @@ class UserStatusSerializer(serializers.ModelSerializer):
 
     def get_is_admin(self, obj):
         return obj.is_staff or obj.is_superuser
-    
+
+
+class FriendActivitySerializer(serializers.ModelSerializer):
+    """
+    Serializuje wpis UserProgress, aby pokazać go w feedzie.
+    Zawiera zagnieżdżone dane o użytkowniku i ćwiczeniu.
+    """
+    user = BasicUserSerializer(read_only=True)
+    exercise_title = serializers.CharField(source='exercise.title', read_only=True)
+
+    class Meta:
+        model = UserProgress
+        fields = [
+            'id', 
+            'user',                   
+            'exercise_title',         
+            'wpm',                    
+            'accuracy',               
+            'ranking_points',         
+            'completed_at',           
+            'completed_daily_challenge' 
+        ]
+
+
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

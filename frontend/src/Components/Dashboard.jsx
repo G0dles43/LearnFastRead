@@ -8,6 +8,8 @@ import ExerciseFilterSidebar from "./ExerciseFilterSidebar.jsx";
 import ExerciseList from "./ExerciseList.jsx";
 import RankedWarningModal from "./RankedWarningModal.jsx";
 import CollectionList from "./CollectionList.jsx";
+import FriendActivityFeed from "./FriendActivityFeed.jsx";
+
 
 export default function Dashboard({ api }) {
   const [exercises, setExercises] = useState([]);
@@ -196,9 +198,13 @@ export default function Dashboard({ api }) {
           isLoading={statusLoading}
         />
 
-        {/* Sekcje pełnej szerokości */}
-        <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <DailyChallenge />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-12">
+          <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <DailyChallenge />
+          </div>
+          <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <FriendActivityFeed api={api} />
+          </div>
         </div>
         
         <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>

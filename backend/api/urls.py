@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import ( 
-    generate_ai_questions, ExerciseAttemptStatusView, UserProgressHistoryView, TodayChallengeView, 
+    FriendActivityFeedView, UserSearchView, FollowingListView, FollowView, UnfollowView, FriendsLeaderboardView, generate_ai_questions, ExerciseAttemptStatusView, UserProgressHistoryView, TodayChallengeView, 
     UserAchievementsView, UserStatusView, toggle_favorite, LeaderboardView, 
     MyStatsView, QuestionListView, ReadingExerciseDelete, ReadingExerciseDetail, 
     ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, 
@@ -44,4 +44,12 @@ urlpatterns = [
 
     path('collections/', CollectionListView.as_view(), name='collection-list'),
     path('collections/<slug:slug>/', CollectionDetailView.as_view(), name='collection-detail'),
+
+    path('friends/feed/', FriendActivityFeedView.as_view(), name='friends-feed'),
+
+    path('users/search/', UserSearchView.as_view(), name='user-search'),
+    path('friends/following/', FollowingListView.as_view(), name='following-list'),
+    path('friends/follow/', FollowView.as_view(), name='follow-user'),
+    path('friends/unfollow/', UnfollowView.as_view(), name='unfollow-user'),
+    path('ranking/leaderboard/friends/', FriendsLeaderboardView.as_view(), name='friends-leaderboard'),
 ]

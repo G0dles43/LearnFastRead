@@ -359,3 +359,22 @@ class ExerciseCollection(models.Model):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+class Friendship(models.Model):
+    follower = models.ForeignKey(
+        CustomUser, 
+        related_name='following', 
+        on_delete=models.CASCADE
+    )
+    followed = models.ForeignKey(
+        CustomUser, 
+        related_name='followers', 
+        on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('follower', 'followed') # Jeden wpis na parę
+
+    def __str__(self):
+        return f"{self.follower.username} follows {self.followed.username}"

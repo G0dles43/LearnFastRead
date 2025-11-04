@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
+from .models import Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +11,7 @@ from rest_framework import status, serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
 from .services import get_today_challenge
-from .serializers import ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from .serializers import FriendActivitySerializer, BasicUserSerializer, ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
 import os
@@ -25,7 +25,7 @@ from django.db.models.functions import Rank
 from .models import CustomUser
 from django.utils import timezone
 from datetime import timedelta
-
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
@@ -682,4 +682,193 @@ def generate_ai_questions(request):
         print(f"Błąd w generate_ai_questions: {e}")
         return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+class UserSearchView(generics.ListAPIView):
+    """
+    API do wyszukiwania użytkowników po nazwie.
+    Przyjmuje parametr ?q=
+    """
+    serializer_class = BasicUserSerializer
+    permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        query = self.request.query_params.get('q', None)
+        user = self.request.user
+        
+        if query:
+            # Wyszukaj użytkowników pasujących do zapytania,
+            # wykluczając samego siebie
+            return CustomUser.objects.filter(
+                username__icontains=query
+            ).exclude(id=user.id).distinct()[:10] # Zwróć max 10 wyników
+        
+        # Jeśli nie ma query, zwróć pustą listę
+        return CustomUser.objects.none()
+
+
+class FollowingListView(APIView):
+    """
+    Zwraca listę ID użytkowników, których obserwuje zalogowany użytkownik.
+    Potrzebne dla frontendu, aby wiedzieć, czy pokazać "Follow" czy "Unfollow".
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        following_ids = Friendship.objects.filter(
+            follower=user
+        ).values_list('followed_id', flat=True)
+        return Response(list(following_ids))
+
+
+class FollowView(APIView):
+    """
+    API do obserwowania użytkownika.
+    Przyjmuje w body: { "user_id": ID_DO_OBSERWOWANIA }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        followed_id = request.data.get('user_id')
+        follower = request.user
+        
+        if not followed_id:
+            return Response(
+                {"error": "Brak 'user_id' w zapytaniu."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if follower.id == followed_id:
+             return Response(
+                {"error": "Nie możesz obserwować samego siebie."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        followed_user = get_object_or_404(CustomUser, id=followed_id)
+        
+        # get_or_create zapobiega duplikatom i obsługuje unique_together
+        friendship, created = Friendship.objects.get_or_create(
+            follower=follower,
+            followed=followed_user
+        )
+        
+        if created:
+            return Response(
+                {"status": "followed", "user_id": followed_id},
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response(
+                {"status": "already_following", "user_id": followed_id},
+                status=status.HTTP_200_OK
+            )
+
+
+class UnfollowView(APIView):
+    """
+    API do przestania obserwowania użytkownika.
+    Przyjmuje w body: { "user_id": ID_DO_ODSERWOWANIA }
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        followed_id = request.data.get('user_id')
+        follower = request.user
+
+        if not followed_id:
+            return Response(
+                {"error": "Brak 'user_id' w zapytaniu."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        followed_user = get_object_or_404(CustomUser, id=followed_id)
+        
+        # Znajdź i usuń relację
+        deleted_count, _ = Friendship.objects.filter(
+            follower=follower,
+            followed=followed_user
+        ).delete()
+
+        if deleted_count > 0:
+            return Response(
+                {"status": "unfollowed", "user_id": followed_id},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"status": "not_following", "user_id": followed_id},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class FriendsLeaderboardView(APIView):
+    """
+    Zwraca ranking, ale przefiltrowany tylko do znajomych
+    zalogowanego użytkownika (oraz jego samego).
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        
+        following_ids = list(Friendship.objects.filter(
+            follower=user
+        ).values_list('followed_id', flat=True))
+        
+        following_ids.append(user.id)
+        
+        ranked_users_query = CustomUser.objects.annotate(
+            rank=Window(
+                expression=Rank(),
+                order_by=F('total_ranking_points').desc()
+            )
+        ).filter(
+            total_ranking_points__gt=0
+        ).order_by(
+            'rank'
+        )
+        
+        ranked_users_query = ranked_users_query.filter(id__in=following_ids)
+        
+        leaderboard_data = []
+        for user_data in ranked_users_query:
+            leaderboard_data.append({
+                'id': user_data.id,
+                'rank': user_data.rank,
+                'username': user_data.username,
+                'total_points': user_data.total_ranking_points,
+                'average_wpm': round(user_data.average_wpm),
+                'average_accuracy': round(user_data.average_accuracy, 1),
+                'exercises_completed': user_data.ranking_exercises_completed,
+            })
+            
+        return Response({"leaderboard": leaderboard_data})
+
+class FriendActivityFeedView(generics.ListAPIView):
+    """
+    Zwraca listę (Limit 15) ostatnich UDANYCH prób rankingowych od użytkowników,
+    których obserwuje zalogowany użytkownik.
+    """
+    serializer_class = FriendActivitySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        following_ids = Friendship.objects.filter(
+            follower=user
+        ).values_list('followed_id', flat=True)
+
+        if not following_ids.exists():
+            return UserProgress.objects.none()
+
+        queryset = UserProgress.objects.filter(
+            counted_for_ranking=True, 
+            ranking_points__gt=0,    
+            user_id__in=following_ids 
+        ).select_related(
+            'user', 'exercise' 
+        ).order_by(
+            '-completed_at'
+        )[:15] 
+        
+        return queryset
