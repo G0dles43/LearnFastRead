@@ -21,40 +21,31 @@ class CustomUser(AbstractUser):
     mode = models.CharField(max_length=20, choices=MODE_CHOICES, default='rsvp')
     chunk_size = models.IntegerField(default=3)
     
-    total_ranking_points = models.IntegerField(default=0)
-    ranking_exercises_completed = models.IntegerField(default=0)
-    average_wpm = models.FloatField(default=0)
-    average_accuracy = models.FloatField(default=0)
+    # === STATYSTYKI RANKINGOWE (tylko zaliczone próby >=60%) ===
+    total_ranking_points = models.IntegerField(default=0, help_text="Suma punktów z ZALICZONYCH prób (accuracy >= 60%)")
+    ranking_exercises_completed = models.IntegerField(default=0, help_text="Liczba ZALICZONYCH prób rankingowych")
+    average_wpm = models.FloatField(default=0, help_text="Średnie WPM z ZALICZONYCH prób")
+    average_accuracy = models.FloatField(default=0, help_text="Średnia accuracy z ZALICZONYCH prób")
 
+    # === SERIA (streak) ===
     current_streak = models.IntegerField(default=0, help_text="Aktualna seria codziennych treningów")
     max_streak = models.IntegerField(default=0, help_text="Najdłuższa osiągnięta seria")
-    last_streak_date = models.DateField(null=True, blank=True, help_text="Data ostatniego zaliczonego treningu w serii")
+    last_streak_date = models.DateField(null=True, blank=True, help_text="Data ostatniego treningu")
 
 class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    favorited_by = models.ManyToManyField(
-        CustomUser, 
-        related_name='favorite_exercises', 
-        blank=True
-    )
+    favorited_by = models.ManyToManyField(CustomUser, related_name='favorite_exercises', blank=True)
     is_public = models.BooleanField(default=False)
     is_ranked = models.BooleanField(default=False)
-    created_by = models.ForeignKey(
-        CustomUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    word_count = models.IntegerField(default=0, editable=False, help_text="Automatycznie liczona liczba słów")
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
+    word_count = models.IntegerField(default=0, editable=False)
     
     def __str__(self):
         return self.title
     
     def get_recommended_questions(self):
-        """Zwraca liczbę pytań DO LOSOWANIA (nie do banku)"""
         if self.word_count <= 300:
             return 3
         elif self.word_count <= 500:
@@ -76,18 +67,12 @@ class Question(models.Model):
     
     exercise = models.ForeignKey(ReadingExercise, on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
-    question_type = models.CharField(
-        max_length=10,
-        choices=QUESTION_TYPES,
-        default='open'
-    )
+    question_type = models.CharField(max_length=10, choices=QUESTION_TYPES, default='open')
     correct_answer = models.CharField(max_length=255)
-    
     option_1 = models.CharField(max_length=255, blank=True, null=True)
     option_2 = models.CharField(max_length=255, blank=True, null=True)
     option_3 = models.CharField(max_length=255, blank=True, null=True)
     option_4 = models.CharField(max_length=255, blank=True, null=True)
-    
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -105,27 +90,34 @@ class Question(models.Model):
 class UserProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="progress_records")
     exercise = models.ForeignKey(ReadingExercise, on_delete=models.CASCADE, related_name="progress_records")
-    wpm = models.IntegerField()
-    accuracy = models.FloatField()
+    
+    # === DANE PODSTAWOWE ===
+    wpm = models.IntegerField(help_text="Słowa na minutę (obliczone z word_count / minuty)")
+    accuracy = models.FloatField(help_text="Trafność w quizie (0-100)")
     completed_at = models.DateTimeField(auto_now_add=True)
     
-    counted_for_ranking = models.BooleanField(default=False)
-    attempt_number = models.IntegerField(default=1)
-    ranking_points = models.IntegerField(default=0)
+    # === RANKING ===
+    counted_for_ranking = models.BooleanField(default=False, help_text="Czy ten wynik liczy się do rankingu")
+    attempt_number = models.IntegerField(default=1, help_text="Która to próba użytkownika dla tego ćwiczenia")
+    ranking_points = models.IntegerField(default=0, help_text="Punkty rankingowe (0 jeśli accuracy < 60)")
     
+    # === DODATKOWE ===
     completed_daily_challenge = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-completed_at']
     
     def calculate_ranking_points(self):
-        from .services import get_today_challenge
-        """Oblicza BAZOWE punkty rankingowe na podstawie WPM, accuracy i długości tekstu"""
+        """
+        Oblicza BAZOWE punkty rankingowe.
+        UWAGA: Zwraca 0 jeśli accuracy < 60%
+        """
         if self.accuracy < 60:
             return 0
         
         word_count = self.exercise.word_count 
         
+        # Mnożnik długości tekstu
         if word_count <= 300:
             length_multiplier = 0.8
         elif word_count <= 500:
@@ -147,9 +139,7 @@ class UserProgress(models.Model):
         return self.completed_at < one_month_ago
     
     def save(self, *args, **kwargs):
-        """
-        Główna logika zapisu
-        """
+        """Główna logika zapisu"""
         old_ranked_attempt_to_deactivate = None
         
         if not self.pk:  
@@ -176,6 +166,7 @@ class UserProgress(models.Model):
             self.user.save()
 
     def _handle_ranking_eligibility(self):
+        """Określa czy ta próba może liczyć się do rankingu"""
         previous_attempts = UserProgress.objects.filter(
             user=self.user, exercise=self.exercise
         )
@@ -195,6 +186,7 @@ class UserProgress(models.Model):
         return None
 
     def _calculate_points_with_bonus(self):
+        """Oblicza punkty z ewentualnym bonusem za daily challenge"""
         from .services import get_today_challenge
         base_points = self.calculate_ranking_points()
 
@@ -212,11 +204,7 @@ class UserProgress(models.Model):
             self.completed_daily_challenge = False
     
     def _update_user_streak(self):
-        """
-        Aktualizuje serię (streak) użytkownika.
-        Wywoływane przy KAŻDYM zapisie UserProgress (rankingowym lub nie).
-        Zakłada, że metoda nadrzędna (save) zapisze zmiany na self.user.
-        """
+        """Aktualizuje serię (streak) użytkownika"""
         user = self.user
         today = timezone.now().date()
         
@@ -232,55 +220,65 @@ class UserProgress(models.Model):
         user.max_streak = max(user.current_streak, user.max_streak)
 
     def update_user_stats(self):
+        """
+        ⚠️ KLUCZOWA METODA - TU OBLICZAMY STATYSTYKI ⚠️
+        
+        Zasady:
+        1. Liczymy TYLKO zaliczone próby: counted_for_ranking=True AND ranking_points > 0
+        2. Średnie WPM i accuracy TYLKO z tych prób
+        3. Suma wszystkich punktów rankingowych
+        4. ranking_exercises_completed = liczba ZALICZONYCH prób (nie unikalne ćwiczenia!)
+        """
         user = self.user
         
-        ranking_results = UserProgress.objects.filter(
+        # Pobierz tylko ZALICZONE próby (accuracy >= 60%, więc ranking_points > 0)
+        successful_attempts = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True,
-            ranking_points__gt=0  
+            ranking_points__gt=0  # To automatycznie filtruje accuracy >= 60%
         )
         
-        stats = ranking_results.aggregate(
-            total_points=Sum('ranking_points'), 
-            count=Count('id'),              
-            total_wpm=Sum('wpm'),            
-            total_accuracy=Sum('accuracy')    
+        stats = successful_attempts.aggregate(
+            total_points=Sum('ranking_points'),
+            count=Count('id'),
+            avg_wpm=Avg('wpm'),
+            avg_accuracy=Avg('accuracy')
         )
-        
-        total_ranked_attempts_count = UserProgress.objects.filter(
-            user=user,
-            counted_for_ranking=True
-        ).count()
         
         if stats['count'] and stats['count'] > 0:
-            user.total_ranking_points = stats['total_points'] if stats['total_points'] is not None else 0
-            user.ranking_exercises_completed = total_ranked_attempts_count 
-            user.average_wpm = stats['total_wpm'] / stats['count']
-            user.average_accuracy = stats['total_accuracy'] / stats['count']
+            user.total_ranking_points = stats['total_points'] or 0
+            user.ranking_exercises_completed = stats['count']
+            user.average_wpm = round(stats['avg_wpm'], 1)
+            user.average_accuracy = round(stats['avg_accuracy'], 1)
         else:
+            # Użytkownik nie ma żadnych zaliczonych prób
             user.total_ranking_points = 0
-            user.ranking_exercises_completed = total_ranked_attempts_count 
+            user.ranking_exercises_completed = 0
             user.average_wpm = 0
             user.average_accuracy = 0
             
         user.save()
 
     def _check_for_new_achievements(self):
+        """Sprawdza i przyznaje osiągnięcia"""
         user = self.user
         
+        # Osiągnięcia za WPM (tylko z zaliczonych prób)
         if self.wpm >= 300:
             self.check_and_award_achievement(user, 'wpm_300')
             
         if self.wpm >= 800:
             self.check_and_award_achievement(user, 'wpm_800')
 
+        # Osiągnięcia za perfekcyjną trafność
         if self.accuracy == 100:
             self.check_and_award_achievement(user, 'accuracy_100')
         
-        # --- POPRAWKA 2 ---
+        # Osiągnięcia za długie teksty
         if self.exercise.word_count > 800:
             self.check_and_award_achievement(user, 'marathoner')
             
+        # Osiągnięcia za daily challenge
         if self.completed_daily_challenge:
             self.check_and_award_achievement(user, 'daily_challenger')
 
@@ -290,18 +288,18 @@ class UserProgress(models.Model):
             
             if not UserAchievement.objects.filter(user=user, achievement=achievement_to_award).exists():
                 UserAchievement.objects.create(user=user, achievement=achievement_to_award)
-                print(f"Przyznano osiągnięcie '{achievement_slug}' użytkownikowi {user.username}")
+                print(f"✅ Przyznano osiągnięcie '{achievement_slug}' użytkownikowi {user.username}")
                 
         except Achievement.DoesNotExist:
-            print(f"OSTRZEŻENIE: Próba przyznania nieistniejącego osiągnięcia: {achievement_slug}")
+            print(f"⚠️ OSTRZEŻENIE: Próba przyznania nieistniejącego osiągnięcia: {achievement_slug}")
         except Exception as e:
-            print(f"Błąd podczas przyznawania osiągnięcia: {e}")
+            print(f"❌ Błąd podczas przyznawania osiągnięcia: {e}")
 
 class Achievement(models.Model):
-    slug = models.CharField(max_length=100, unique=True, primary_key=True, help_text="Unikalny identyfikator, np. 'wpm_500'")
+    slug = models.CharField(max_length=100, unique=True, primary_key=True)
     title = models.CharField(max_length=100)
-    description = models.TextField(help_text="Opis, który zobaczy użytkownik, np. 'Osiągnij 500 Słów na Minutę'")
-    icon_name = models.CharField(max_length=50, default="🏆", help_text="Emoji lub nazwa ikony (np. z FontAwesome)")
+    description = models.TextField()
+    icon_name = models.CharField(max_length=50, default="🏆")
 
     def __str__(self):
         return self.title
@@ -320,26 +318,11 @@ class UserAchievement(models.Model):
 class ExerciseCollection(models.Model):
     title = models.CharField(max_length=150)
     slug = models.SlugField(unique=True, max_length=170, blank=True)
-    description = models.TextField(blank=True, help_text="Opis kolekcji")
-    
-    exercises = models.ManyToManyField(
-        ReadingExercise,
-        related_name='collections',
-        blank=True,
-        help_text="Ćwiczenia zawarte w tej kolekcji"
-    )
-    
-    created_by = models.ForeignKey(
-        CustomUser, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='collections'
-    )
-    
-    icon_name = models.CharField(max_length=50, default="📚", help_text="Emoji lub nazwa ikony")
-    is_public = models.BooleanField(default=False, help_text="Czy kolekcja jest widoczna dla wszystkich?")
-    
+    description = models.TextField(blank=True)
+    exercises = models.ManyToManyField(ReadingExercise, related_name='collections', blank=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='collections')
+    icon_name = models.CharField(max_length=50, default="📚")
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -361,20 +344,12 @@ class ExerciseCollection(models.Model):
         super().save(*args, **kwargs)
 
 class Friendship(models.Model):
-    follower = models.ForeignKey(
-        CustomUser, 
-        related_name='following', 
-        on_delete=models.CASCADE
-    )
-    followed = models.ForeignKey(
-        CustomUser, 
-        related_name='followers', 
-        on_delete=models.CASCADE
-    )
+    follower = models.ForeignKey(CustomUser, related_name='following', on_delete=models.CASCADE)
+    followed = models.ForeignKey(CustomUser, related_name='followers', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('follower', 'followed') # Jeden wpis na parę
+        unique_together = ('follower', 'followed')
 
     def __str__(self):
         return f"{self.follower.username} follows {self.followed.username}"

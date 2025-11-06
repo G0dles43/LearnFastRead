@@ -116,10 +116,8 @@ class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 
 class SubmitProgress(APIView):
     """
-    --- POPRAWKA ---
-    Endpoint do zapisu postępu w ćwiczeniu.
-    Obsługuje zarówno ćwiczenia RANKINGOWE (z quizem) 
-    jak i TRENINGOWE (bez quizu - dla streaka).
+    Endpoint do zapisu postępu.
+    ZWRACA: dokładnie te same dane, które są zapisane w bazie.
     """
     permission_classes = [IsAuthenticated]
 
@@ -130,11 +128,8 @@ class SubmitProgress(APIView):
         try:
             exercise_id = data.get('exercise')
             reading_time_ms = data.get('reading_time_ms')
-            
-            # Odpowiedzi są teraz OPCJONALNE (mogą być puste dla treningu)
-            answers = data.get('answers') 
+            answers = data.get('answers')
 
-            # Sprawdzamy tylko podstawowe dane
             if not all([exercise_id, reading_time_ms is not None]):
                 return Response(
                     {"error": "Brakujące dane: exercise_id lub reading_time_ms."},
@@ -144,18 +139,18 @@ class SubmitProgress(APIView):
             exercise = ReadingExercise.objects.get(pk=exercise_id)
             
             if reading_time_ms <= 0: 
-                return Response({"error": "Nieprawidłowy czas czytania"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Nieprawidłowy czas czytania"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
                 
             minutes = reading_time_ms / 60000.0
             wpm = round(exercise.word_count / minutes)
 
-            # Domyślna trafność dla ćwiczeń treningowych
-            accuracy = 0.0 
+            accuracy = 0.0
 
-            # --- POPRAWIONA LOGIKA WALIDACJI ---
-            # Jeśli ćwiczenie jest rankingowe, MUSIMY mieć odpowiedzi i obliczyć trafność
             if exercise.is_ranked:
-                if answers is None: # Musi być słownik (nawet pusty), ale nie None
+                if answers is None:
                      return Response(
                         {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
                         status=status.HTTP_400_BAD_REQUEST
@@ -174,8 +169,6 @@ class SubmitProgress(APIView):
                                 correct_answers_count += 1
                     
                     accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
-            
-            # Dla treningu (nierankingowego), 'accuracy' po prostu pozostanie 0.0
 
             progress = UserProgress(
                 user=user,
@@ -183,34 +176,37 @@ class SubmitProgress(APIView):
                 wpm=wpm,
                 accuracy=accuracy
             )
-            # Metoda save() w modelu zajmie się logiką STREAK oraz RANKINGU
-            progress.save() 
+            progress.save()
 
-            # Zwracamy różne odpowiedzi w zależności od typu ćwiczenia
+            response_data = {
+                'wpm': progress.wpm,  # To co zapisane w bazie
+                'accuracy': progress.accuracy,  # To co zapisane w bazie
+                'ranking_points': progress.ranking_points,  # 0 jeśli < 60%
+                'counted_for_ranking': progress.counted_for_ranking,
+                'attempt_number': progress.attempt_number,
+            }
+
             if exercise.is_ranked:
-                return Response({
-                    'wpm': progress.wpm,
-                    'accuracy': progress.accuracy,
-                    'ranking_points': progress.ranking_points,
-                    'counted_for_ranking': progress.counted_for_ranking,
-                    'attempt_number': progress.attempt_number,
-                    'message': 'Wynik zaliczony do rankingu!' if progress.counted_for_ranking else 'Wynik zapisany (trening - nie liczy się do rankingu)'
-                }, status=status.HTTP_201_CREATED)
+                if progress.counted_for_ranking:
+                    response_data['message'] = 'Wynik zaliczony do rankingu!'
+                else:
+                    response_data['message'] = 'Wynik zapisany (trening - nie liczy się do rankingu)'
             else:
-                return Response({
-                    'wpm': progress.wpm,
-                    'accuracy': progress.accuracy,
-                    'ranking_points': 0,
-                    'counted_for_ranking': False,
-                    'attempt_number': progress.attempt_number,
-                    'message': f'Trening ukończony! Twoja seria została zaktualizowana. (WPM: {progress.wpm})'
-                }, status=status.HTTP_201_CREATED)
+                response_data['message'] = f'Trening ukończony! Seria zaktualizowana. (WPM: {progress.wpm})'
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
         except ReadingExercise.DoesNotExist:
-            return Response({"error": "Nie znaleziono ćwiczenia"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Nie znaleziono ćwiczenia"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             print(f"Błąd w SubmitProgress: {e}") 
-            return Response({"error": "Wystąpił wewnętrzny błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "Wystąpił wewnętrzny błąd serwera."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class UserSettingsView(APIView):
@@ -373,13 +369,19 @@ class QuestionListView(generics.ListAPIView):
             return question_list
 
         return random.sample(question_list, num_to_sample)
-# --- KONIEC POPRAWIONEJ SEKCJI ---
 
 
 class LeaderboardView(APIView):
+    """
+    RANKING GLOBALNY
+    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from django.db.models import Window
+        from django.db.models.functions import Rank
+        
         ranked_users_query = CustomUser.objects.annotate(
             rank=Window(
                 expression=Rank(),
@@ -387,54 +389,53 @@ class LeaderboardView(APIView):
             )
         ).filter(
             total_ranking_points__gt=0
-        ).order_by(
-            'rank'
-        ).values(
-            'rank',
-            'username',
-            'total_ranking_points',
-            'average_wpm',
-            'average_accuracy',
-            'ranking_exercises_completed'
-        )
+        ).order_by('rank')
 
         leaderboard_data = []
-        for user_data in ranked_users_query:
+        for user in ranked_users_query:
             leaderboard_data.append({
-                'rank': user_data['rank'],
-                'username': user_data['username'],
-                'total_points': user_data['total_ranking_points'],
-                'average_wpm': round(user_data['average_wpm']),
-                'average_accuracy': round(user_data['average_accuracy'], 1),
-                'exercises_completed': user_data['ranking_exercises_completed'],
+                'id': user.id,
+                'rank': user.rank,
+                'username': user.username,
+                'total_points': user.total_ranking_points,  # Suma punktów z ZALICZONYCH
+                'average_wpm': round(user.average_wpm),  # Średnie WPM z ZALICZONYCH
+                'average_accuracy': round(user.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
+                'exercises_completed': user.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
             })
 
         return Response({"leaderboard": leaderboard_data})
 
 
 class MyStatsView(APIView):
+    """
+    MOJE STATYSTYKI
+    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
+        from django.db.models import Window
+        from django.db.models.functions import Rank
 
+        # Znajdź rangę użytkownika
         user_rank_data = CustomUser.objects.annotate(
             rank=Window(
                 expression=Rank(),
                 order_by=F('total_ranking_points').desc()
             )
-        ).filter(
-            id=user.id
-        ).values('rank', 'total_ranking_points').first()
+        ).filter(id=user.id).values('rank', 'total_ranking_points').first()
 
         user_rank = user_rank_data['rank'] if user_rank_data else 0
         
         if user_rank_data and user_rank_data['total_ranking_points'] == 0:
             user_rank = "N/A"
 
+        # Pobierz ostatnie ZALICZONE wyniki
         recent_results_query = UserProgress.objects.filter(
             user=user,
-            counted_for_ranking=True
+            counted_for_ranking=True,
+            ranking_points__gt=0  # Tylko zaliczone (>= 60%)
         ).order_by('-completed_at')[:10]
 
         recent_results_data = []
@@ -449,14 +450,15 @@ class MyStatsView(APIView):
 
         stats = {
             'rank': user_rank,
-            'total_points': user.total_ranking_points,
-            'average_wpm': round(user.average_wpm),
-            'average_accuracy': round(user.average_accuracy, 1),
-            'exercises_completed': user.ranking_exercises_completed,
-            'recent_results': recent_results_data
+            'total_points': user.total_ranking_points,  # Suma punktów z ZALICZONYCH
+            'average_wpm': round(user.average_wpm),  # Średnie WPM z ZALICZONYCH
+            'average_accuracy': round(user.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
+            'exercises_completed': user.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
+            'recent_results': recent_results_data  # Ostatnie ZALICZONE wyniki
         }
 
         return Response(stats)
+
 
 class UserAchievementsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -808,12 +810,15 @@ class UnfollowView(APIView):
 
 class FriendsLeaderboardView(APIView):
     """
-    Zwraca ranking, ale przefiltrowany tylko do znajomych
-    zalogowanego użytkownika (oraz jego samego).
+    RANKING ZNAJOMYCH
+    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
     """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        from django.db.models import Window
+        from django.db.models.functions import Rank
+        
         user = request.user
         
         following_ids = list(Friendship.objects.filter(
@@ -828,12 +833,9 @@ class FriendsLeaderboardView(APIView):
                 order_by=F('total_ranking_points').desc()
             )
         ).filter(
-            total_ranking_points__gt=0
-        ).order_by(
-            'rank'
-        )
-        
-        ranked_users_query = ranked_users_query.filter(id__in=following_ids)
+            total_ranking_points__gt=0,
+            id__in=following_ids
+        ).order_by('rank')
         
         leaderboard_data = []
         for user_data in ranked_users_query:
@@ -841,10 +843,10 @@ class FriendsLeaderboardView(APIView):
                 'id': user_data.id,
                 'rank': user_data.rank,
                 'username': user_data.username,
-                'total_points': user_data.total_ranking_points,
-                'average_wpm': round(user_data.average_wpm),
-                'average_accuracy': round(user_data.average_accuracy, 1),
-                'exercises_completed': user_data.ranking_exercises_completed,
+                'total_points': user_data.total_ranking_points,  # Suma punktów z ZALICZONYCH
+                'average_wpm': round(user_data.average_wpm),  # Średnie WPM z ZALICZONYCH
+                'average_accuracy': round(user_data.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
+                'exercises_completed': user_data.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
             })
             
         return Response({"leaderboard": leaderboard_data})

@@ -412,11 +412,11 @@ export default function TrainingSession({ api }) {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm text-text-secondary">
-                    Aktualne tempo
-                  </div>
-                  <div className="text-xl font-bold">
-                    {currentWPM} WPM
+                  <div>
+                    <div className="text-sm text-text-secondary">Tempo</div>
+                    <div className="text-xl font-bold">
+                      ~{Math.round(60000 / speed)} WPM 
+                    </div>
                   </div>
                 </div>
               </div>
