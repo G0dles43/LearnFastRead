@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import ( 
-    MyStatsView, QuestionListView, ReadingExerciseRetrieveUpdateDestroyView, FriendActivityFeedView, UserSearchView, FollowingListView, FollowView, UnfollowView, FriendsLeaderboardView, generate_ai_questions, ExerciseAttemptStatusView, UserProgressHistoryView, TodayChallengeView, 
+    GoogleLoginView, MyStatsView, QuestionListView, ReadingExerciseRetrieveUpdateDestroyView, FriendActivityFeedView, UserSearchView, FollowingListView, FollowView, UnfollowView, FriendsLeaderboardView, generate_ai_questions, ExerciseAttemptStatusView, UserProgressHistoryView, TodayChallengeView, 
     UserAchievementsView, UserStatusView, toggle_favorite, LeaderboardView, 
     ReadingExerciseCreate, SearchExercises, UserSettingsView, RegisterView, 
     ReadingExerciseList, SubmitProgress, CollectionListView, CollectionDetailView
@@ -14,6 +14,8 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),    
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    path('auth/google/', GoogleLoginView.as_view(), name='google_login'),
     
     path('exercises/', ReadingExerciseList.as_view(), name='exercise-list'),
     path('exercises/create/', ReadingExerciseCreate.as_view(), name='exercise-create'),

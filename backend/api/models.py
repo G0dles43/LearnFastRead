@@ -7,6 +7,13 @@ from django.db.models import Sum, Avg, Count
 from django.utils.text import slugify
 
 class CustomUser(AbstractUser):
+    avatar = models.ImageField(
+    upload_to='media/avatars/', 
+    null=True, 
+    blank=True, 
+    default='media/avatars/default.png'
+)
+
     speed = models.IntegerField(default=200)
     muted = models.BooleanField(default=False)
     
@@ -21,16 +28,17 @@ class CustomUser(AbstractUser):
     mode = models.CharField(max_length=20, choices=MODE_CHOICES, default='rsvp')
     chunk_size = models.IntegerField(default=3)
     
-    # === STATYSTYKI RANKINGOWE (tylko zaliczone próby >=60%) ===
     total_ranking_points = models.IntegerField(default=0, help_text="Suma punktów z ZALICZONYCH prób (accuracy >= 60%)")
     ranking_exercises_completed = models.IntegerField(default=0, help_text="Liczba ZALICZONYCH prób rankingowych")
     average_wpm = models.FloatField(default=0, help_text="Średnie WPM z ZALICZONYCH prób")
     average_accuracy = models.FloatField(default=0, help_text="Średnia accuracy z ZALICZONYCH prób")
 
-    # === SERIA (streak) ===
     current_streak = models.IntegerField(default=0, help_text="Aktualna seria codziennych treningów")
     max_streak = models.IntegerField(default=0, help_text="Najdłuższa osiągnięta seria")
     last_streak_date = models.DateField(null=True, blank=True, help_text="Data ostatniego treningu")
+
+    def __str__(self):
+        return self.username or self.email or f"User {self.id}"
 
 class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
@@ -163,6 +171,7 @@ class UserProgress(models.Model):
             self.update_user_stats()
             self._check_for_new_achievements()
         else:
+            # Zapiszmy chociaż serię, nawet jeśli reszta statystyk się nie zmienia
             self.user.save()
 
     def _handle_ranking_eligibility(self):

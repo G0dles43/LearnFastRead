@@ -8,7 +8,46 @@ from datetime import timedelta
 from django.db.models import Sum
 from django.db import transaction
 
+# === ZMIANA: Usunęliśmy import UniqueValidator, nie jest potrzebny ===
+from dj_rest_auth.serializers import UserDetailsSerializer
+
+
 User = get_user_model()
+
+# === ZAKTUALIZOWANA (I UPROSZCZONA) KLASA ===
+class CustomUserDetailsSerializer(UserDetailsSerializer):
+    """
+    Serializer do pobierania i aktualizowania danych użytkownika.
+    Dodaje pole 'avatar' oraz flagę 'has_usable_password'.
+    
+    Tym razem NIE ruszamy pola 'username'. Pozwalamy, aby
+    'UserDetailsSerializer' sam sobie z nim poradził,
+    co naprawi błąd walidacji "użytkownik istnieje".
+    """
+    
+    # Pole, które mówi frontendowi, czy pokazać zmianę hasła
+    has_usable_password = serializers.SerializerMethodField()
+    
+    # Jawnie definiujemy pole avatar, aby działał zapis
+    avatar = serializers.ImageField(required=False, allow_null=True)
+
+    class Meta(UserDetailsSerializer.Meta):
+        # Bierzemy domyślne pola z UserDetailsSerializer (w tym 'username' i 'email')
+        # i po prostu dodajemy nasze customowe pola.
+        fields = UserDetailsSerializer.Meta.fields + ('avatar', 'has_usable_password')
+        
+        # Ustawiamy nasze nowe pola jako "tylko do odczytu" w odpowiedzi,
+        # ale 'avatar' będzie zapisywalny (bo zdefiniowaliśmy go powyżej).
+        # 'email' zostaje read_only.
+        read_only_fields = ('email', 'has_usable_password')
+
+    def get_has_usable_password(self, obj):
+        # Ta metoda działa poprawnie i zostaje
+        return obj.has_usable_password()
+
+    # === USUNĘLIŚMY WSZYSTKIE NADPISANIA pola 'username' i metody 'update' ===
+# === KONIEC ZAKTUALIZOWANEJ KLASY ===
+
 
 class BasicUserSerializer(serializers.ModelSerializer):
     """
@@ -47,12 +86,12 @@ class FriendActivitySerializer(serializers.ModelSerializer):
         model = UserProgress
         fields = [
             'id', 
-            'user',                   
-            'exercise_title',         
-            'wpm',                    
-            'accuracy',               
-            'ranking_points',         
-            'completed_at',           
+            'user',              
+            'exercise_title',       
+            'wpm',                
+            'accuracy',             
+            'ranking_points',       
+            'completed_at',         
             'completed_daily_challenge' 
         ]
 
@@ -78,14 +117,35 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
 
+        # Te customowe pola będą dodawane do KAŻDEGO tokenu
         token['username'] = user.username
         token['user_id'] = user.id
         
         return token
+
+    def validate(self, attrs):
+        # Ta metoda jest używana przez standardowe logowanie (login/hasło)
+        data = super().validate(attrs)
+        
+        # Pobierz token (który już ma 'username' dzięki get_token)
+        refresh = self.get_token(self.user)
+
+        data['refresh'] = str(refresh)
+        data['access'] = str(refresh.access_token)
+
+        # Dodaj dane użytkownika do odpowiedzi logowania (opcjonalnie, ale miłe)
+        data['user'] = {
+            'id': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email
+        }
+        
+        return data
     
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -164,7 +224,7 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         questions_data = self.context['request'].data.get('questions', []) 
         validated_data.pop('questions', None) 
         
-        validated_data.pop('favorited_by', None)      
+        validated_data.pop('favorited_by', None)    
 
         exercise = ReadingExercise.objects.create(**validated_data)
         
@@ -236,7 +296,7 @@ class ExerciseCollectionSerializer(serializers.ModelSerializer):
             'id', 'title', 'slug', 'description', 'icon_name', 
             'is_public', 'created_at', 'created_by_username',
             'exercise_count', 'total_words', 
-            'exercises',      
+            'exercises',    
             'exercise_ids'    
         ]
         read_only_fields = ['slug']

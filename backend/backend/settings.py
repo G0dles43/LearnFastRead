@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,10 +41,22 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
+    "django.contrib.sites",
+
     'api',
     'rest_framework',
-    'corsheaders'
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'rest_framework.authtoken',
+
+    'dj_rest_auth', 
+    'allauth',  
+    'allauth.account', 
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
+
+SITE_ID = 1
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -54,6 +67,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -71,6 +85,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -126,6 +141,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -133,8 +151,58 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
 }
 
 AUTH_USER_MODEL = 'api.CustomUser'
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+)
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
+}
+
+REST_AUTH = {
+    'USE_JWT': True, 
+    'JWT_AUTH_HTTPONLY': False, 
+    
+    'REGISTER_SERIALIZER': 'api.serializers.RegisterSerializer',
+    
+    'TOKEN_SERIALIZER': 'api.serializers.MyTokenObtainPairSerializer',
+    
+    'SOCIAL_LOGIN_SERIALIZER': 'dj_rest_auth.registration.serializers.SocialLoginSerializer',
+}
+
+ACCOUNT_AUTHENTICATION_METHOD = "email" 
+ACCOUNT_EMAIL_REQUIRED = True           
+ACCOUNT_UNIQUE_EMAIL = True             
+ACCOUNT_USERNAME_REQUIRED = False        
+ACCOUNT_USER_MODEL_USERNAME_FIELD = "username" 
+ACCOUNT_EMAIL_VERIFICATION = "none"      
+
+ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
+
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'VERIFIED_EMAIL': True,
+    }
+}

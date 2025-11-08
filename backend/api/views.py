@@ -19,6 +19,9 @@ import os
 import json
 import random  
 import google.generativeai as genai
+from dj_rest_auth.registration.views import SocialLoginView
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from rest_framework.exceptions import PermissionDenied
 from dotenv import load_dotenv
 from django.db.models import F, Window, Q
@@ -469,7 +472,6 @@ class UserAchievementsView(APIView):
         serializer = UserAchievementSerializer(unlocked_achievements, many=True)
         return Response(serializer.data)
 
-# --- POPRAWIONA SEKCJA ExerciseAttemptStatusView ---
 class ExerciseAttemptStatusView(APIView):
     """
     Sprawdź czy użytkownik może zdobyć punkty rankingowe dla danego ćwiczenia
@@ -534,7 +536,6 @@ class ExerciseAttemptStatusView(APIView):
                     "completed_at": last_ranked.completed_at.isoformat()
                 }
             })
-# --- KONIEC POPRAWIONEJ SEKCJI ---
     
 class TodayChallengeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -703,13 +704,10 @@ class UserSearchView(generics.ListAPIView):
         user = self.request.user
         
         if query:
-            # Wyszukaj użytkowników pasujących do zapytania,
-            # wykluczając samego siebie
             return CustomUser.objects.filter(
                 username__icontains=query
-            ).exclude(id=user.id).distinct()[:10] # Zwróć max 10 wyników
+            ).exclude(id=user.id).distinct()[:10]
         
-        # Jeśli nie ma query, zwróć pustą listę
         return CustomUser.objects.none()
 
 
@@ -753,7 +751,6 @@ class FollowView(APIView):
             
         followed_user = get_object_or_404(CustomUser, id=followed_id)
         
-        # get_or_create zapobiega duplikatom i obsługuje unique_together
         friendship, created = Friendship.objects.get_or_create(
             follower=follower,
             followed=followed_user
@@ -790,7 +787,6 @@ class UnfollowView(APIView):
             
         followed_user = get_object_or_404(CustomUser, id=followed_id)
         
-        # Znajdź i usuń relację
         deleted_count, _ = Friendship.objects.filter(
             follower=follower,
             followed=followed_user
@@ -843,10 +839,10 @@ class FriendsLeaderboardView(APIView):
                 'id': user_data.id,
                 'rank': user_data.rank,
                 'username': user_data.username,
-                'total_points': user_data.total_ranking_points,  # Suma punktów z ZALICZONYCH
-                'average_wpm': round(user_data.average_wpm),  # Średnie WPM z ZALICZONYCH
-                'average_accuracy': round(user_data.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
-                'exercises_completed': user_data.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
+                'total_points': user_data.total_ranking_points, 
+                'average_wpm': round(user_data.average_wpm), 
+                'average_accuracy': round(user_data.average_accuracy, 1),  
+                'exercises_completed': user_data.ranking_exercises_completed, 
             })
             
         return Response({"leaderboard": leaderboard_data})
@@ -880,3 +876,14 @@ class FriendActivityFeedView(generics.ListAPIView):
         )[:15] 
         
         return queryset
+    
+class GoogleLoginView(SocialLoginView):
+    """
+    Ten widok obsługuje logowanie przez Google.
+    Przyjmuje 'access_token' od frontendu (z biblioteki @react-oauth/google)
+    i zwraca standardowe tokeny JWT (access, refresh) Twojej aplikacji.
+    """
+    adapter_class = GoogleOAuth2Adapter
+    client_class = OAuth2Client
+    
+    callback_url = "http://localhost:5173"     

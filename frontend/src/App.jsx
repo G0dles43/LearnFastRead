@@ -13,9 +13,16 @@ import HowItWorks from "./Components/HowItWorks.jsx";
 import CollectionManager from "./Components/CollectionManager.jsx";
 import CollectionForm from "./Components/CollectionForm.jsx";
 import CollectionDetail from "./Components/CollectionDetail.jsx";
+import Profile from "./Components/Profile.jsx";
 
 import axios from "axios";
 import { useState, useEffect } from "react"; 
+
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
+
+const GOOGLE_CLIENT_ID = "11078447520-dmlr36fl2dd6acetjjdosi56ba8qksn2.apps.googleusercontent.com";
+
 
 const createAxiosInstance = () => {
   const api = axios.create({
@@ -63,13 +70,13 @@ const createAxiosInstance = () => {
             console.error("Nie udało się odświeżyć tokenu:", refreshError);
             localStorage.removeItem("access");
             localStorage.removeItem("refresh");
-             return Promise.reject(refreshError); 
+            return Promise.reject(refreshError); 
           }
         } else {
           console.log("Brak refresh tokenu, przekierowanie do logowania.");
           localStorage.removeItem("access");
           localStorage.removeItem("refresh");
-           return Promise.reject(error); 
+          return Promise.reject(error); 
         }
       }
 
@@ -112,6 +119,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login api={apiInstance} />} /> 
         <Route path="/register" element={<Register api={apiInstance} />} />
+        <Route path="/profile" element={<Profile api={apiInstance} />} />
+        
         <Route path="/dashboard" element={<Dashboard api={apiInstance} />} />
         <Route path="/training/:id" element={<TrainingSession api={apiInstance} />} />
         <Route path="/settings" element={<Settings api={apiInstance} />} />
@@ -132,10 +141,12 @@ function App() {
 
 function Root() {
   return (
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   );
 }
 
-export default Root; 
+export default Root;
