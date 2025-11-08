@@ -55,17 +55,14 @@ def create_achievement_notification(sender, instance, created, **kwargs):
     
     if created:
         try:
-            achievement_content_type = ContentType.objects.get_for_model(instance.achievement.__class__)
             
             Notification.objects.create(
                 recipient=instance.user,
                 actor=instance.user,
-                verb=f"odblokował osiągnięcie: {instance.achievement.title}",
-                content_type=achievement_content_type,
-                object_id=instance.achievement.pk
+                verb=f"odblokował osiągnięcie: {instance.achievement.title}"
             )
             
-            print(f"[SIGNAL] Achievement notification utworzone!")
+            print(f"[SIGNAL] Achievement notification (simple) utworzone!")
             
         except Exception as e:
             print(f"[SIGNAL ERROR] {e}")

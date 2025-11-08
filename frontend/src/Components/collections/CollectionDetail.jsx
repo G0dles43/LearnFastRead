@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import ExerciseCard from './ExerciseCard.jsx';
-import RankedWarningModal from './RankedWarningModal.jsx';
+import ExerciseCard from '../dashboard/ExerciseCard.jsx';
+import RankedWarningModal from '../ui/RankedWarningModal.jsx';
 
 export default function CollectionDetail({ api }) {
   const { slug } = useParams();

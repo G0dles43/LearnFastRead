@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import useAntiCheating from "../hooks/useAntiCheating.js";
-import CheatPopup from "./CheatPopup.jsx";
+import useAntiCheating from "../../hooks/useAntiCheating.js";
+import CheatPopup from "../ui/CheatPopup.jsx";
 
 // === NOWY BLOK STYLÓW ===
 // Możesz to przenieść do CSS, ale tutaj jest dla prostoty.

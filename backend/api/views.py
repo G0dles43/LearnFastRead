@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
-from .services import get_today_challenge
+from .services.challenge_service import get_today_challenge
 from .serializers import (
     NotificationSerializer, FriendActivitySerializer, BasicUserSerializer, 
     ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, 
@@ -34,6 +34,8 @@ from django.db.models.functions import Rank
 from .models import CustomUser
 from django.utils import timezone
 from datetime import timedelta
+from .services import submission_service 
+from .services.submission_service import SubmissionResult
 from django.shortcuts import get_object_or_404
 
 User = get_user_model()
@@ -119,7 +121,7 @@ class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 class SubmitProgress(APIView):
     permission_classes = [IsAuthenticated]
 
-    MAX_HUMAN_WPM = 1500
+    MAX_HUMAN_WPM = 1500 
 
     def post(self, request, *args, **kwargs):
         data = request.data
@@ -128,7 +130,7 @@ class SubmitProgress(APIView):
         try:
             exercise_id = data.get('exercise')
             reading_time_ms = data.get('reading_time_ms')
-            answers = data.get('answers')
+            answers = data.get('answers') 
 
             if not all([exercise_id, reading_time_ms is not None]):
                 return Response(
@@ -143,7 +145,7 @@ class SubmitProgress(APIView):
                     {"error": "Nieprawidłowy czas czytania"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
-                
+            
             word_count = exercise.word_count
             if word_count > 0: 
                 min_time_per_word_ms = 60000.0 / self.MAX_HUMAN_WPM
@@ -153,23 +155,26 @@ class SubmitProgress(APIView):
                     print(f"ANTI-CHEAT: User {user.username} (ID: {user.id}) przesłał niemożliwy czas!")
                     print(f"Tekst: {word_count} słów, Czas: {reading_time_ms}ms, Wymagane min: {min_possible_time_ms}ms")
                     
-                    progress = UserProgress(
+                    submission_service.process_exercise_submission(
                         user=user,
                         exercise=exercise,
-                        wpm=9999,
-                        accuracy=0 
+                        wpm=9999, 
+                        accuracy=0
                     )
-                    progress.save() 
                     
                     return Response(
                         {"error": "Wykryto niemożliwie szybki czas czytania. Próba anulowana."},
                         status=status.HTTP_403_FORBIDDEN
                     )
-                
+            
             minutes = reading_time_ms / 60000.0
-            wpm = round(exercise.word_count / minutes)
+            
+            if minutes == 0:
+                wpm = 0
+            else:
+                wpm = round(exercise.word_count / minutes)
 
-            accuracy = 0.0
+            accuracy = 0.0 
 
             if exercise.is_ranked:
                 if answers is None:
@@ -191,30 +196,24 @@ class SubmitProgress(APIView):
                                 correct_answers_count += 1
                     
                     accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
-
-            progress = UserProgress(
+            
+            
+            result: SubmissionResult = submission_service.process_exercise_submission(
                 user=user,
                 exercise=exercise,
                 wpm=wpm,
                 accuracy=accuracy
             )
-            progress.save()
-
-            response_data = {
-                'wpm': progress.wpm, 
-                'accuracy': progress.accuracy, 
-                'ranking_points': progress.ranking_points, 
-                'counted_for_ranking': progress.counted_for_ranking,
-                'attempt_number': progress.attempt_number,
-            }
+            
+            response_data = result.to_dict() 
 
             if exercise.is_ranked:
-                if progress.counted_for_ranking:
+                if result.progress.counted_for_ranking:
                     response_data['message'] = 'Wynik zaliczony do rankingu!'
                 else:
                     response_data['message'] = 'Wynik zapisany (trening - nie liczy się do rankingu)'
             else:
-                response_data['message'] = f'Trening ukończony! Seria zaktualizowana. (WPM: {progress.wpm})'
+                response_data['message'] = f'Trening ukończony! Seria zaktualizowana. (WPM: {result.progress.wpm})'
 
             return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -224,12 +223,11 @@ class SubmitProgress(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            print(f"Błąd w SubmitProgress: {e}") 
+            print(f"Błąd w SubmitLog: {e}") 
             return Response(
                 {"error": "Wystąpił wewnętrzny błąd serwera."}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class UserSettingsView(APIView):
     permission_classes = [IsAuthenticated]

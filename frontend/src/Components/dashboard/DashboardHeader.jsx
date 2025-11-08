@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 // === NOWY IMPORT ===
-import NotificationBell from "./NotificationBell.jsx";
+import NotificationBell from "../ui/NotificationBell.jsx";
 // === KONIEC NOWEGO IMPORTU ===
 
 export default function DashboardHeader({ userName, currentStreak, isLoading, api }) { // Dodano 'api'

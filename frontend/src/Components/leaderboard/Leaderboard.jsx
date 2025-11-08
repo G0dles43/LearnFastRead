@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import MyAchievements from "./MyAchievements";
+import MyAchievements from "./MyAchievements.jsx";
 import ProgressCharts from "./ProgressCharts.jsx";
 import { jwtDecode } from "jwt-decode"; 
 

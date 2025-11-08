@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import RSVPReader from "./RSVPReader.jsx";
-import { getDynamicDelay } from "../utils/readingUtils.js"; 
+import RSVPReader from "../reader/RSVPReader.jsx";
+import { getDynamicDelay } from "../../utils/readingUtils.js"; 
 
 const msToWpm = (ms) => Math.round(60000 / ms);
 const wpmToMs = (wpm) => Math.round(60000 / wpm);

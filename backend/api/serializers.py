@@ -88,15 +88,16 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         if max_wpm >= 1500:
             min_ms_allowed = 40
         else:
-            min_ms_allowed = 60000 / max_wpm
+            min_ms_allowed = round(60000 / max_wpm) 
 
-        if value_ms < (min_ms_allowed - 1):
+        if value_ms < min_ms_allowed:
             raise serializers.ValidationError(
                 f"Nie możesz ustawić prędkości wyższej niż Twój limit ({max_wpm} WPM). "
                 f"Ukończ ćwiczenie rankingowe na poziomie {max_wpm} WPM (lub wyższym) z trafnością >60%, aby odblokować kolejny poziom."
             )
         
-        return value_ms    
+        return value_ms
+    
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 

@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import Quiz from "./Quiz";
-import HighlightReader from "./HighlightReader";
-import RSVPReader from "./RSVPReader";
-import ChunkingReader from "./ChunkingReader";
-import { getDynamicDelay } from "../utils/readingUtils.js";
-import useAntiCheating from "../hooks/useAntiCheating.js";
-import CheatPopup from "./CheatPopup.jsx";
+import Quiz from "../leaderboard/Quiz.jsx";
+import HighlightReader from "./HighlightReader.jsx";
+import RSVPReader from "./RSVPReader.jsx";
+import ChunkingReader from "./ChunkingReader.jsx";
+import { getDynamicDelay } from "../../utils/readingUtils.js";
+import useAntiCheating from "../../hooks/useAntiCheating.js";
+import CheatPopup from "../ui/CheatPopup.jsx";
 
 export default function TrainingSession({ api }) {
   const [words, setWords] = useState([]);
