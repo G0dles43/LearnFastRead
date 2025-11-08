@@ -1,7 +1,11 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-export default function DashboardHeader({ userName, currentStreak, isLoading }) {
+// === NOWY IMPORT ===
+import NotificationBell from "./NotificationBell.jsx";
+// === KONIEC NOWEGO IMPORTU ===
+
+export default function DashboardHeader({ userName, currentStreak, isLoading, api }) { // Dodano 'api'
   const navigate = useNavigate();
 
   const getDayWord = (days) => {
@@ -49,7 +53,8 @@ export default function DashboardHeader({ userName, currentStreak, isLoading }) 
           )}
         </div>
       </div>
-      <div className="flex gap-3">
+      <div className="flex gap-3 items-center"> {/* Dodano items-center */}
+        
         <Link to="/profile" className="btn btn-ghost">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -78,6 +83,9 @@ export default function DashboardHeader({ userName, currentStreak, isLoading }) 
         >
           Wyloguj
         </button>
+
+        <NotificationBell api={api} />
+
       </div>
     </header>
   );

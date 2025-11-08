@@ -3,7 +3,7 @@ from rest_framework import generics, permissions
 from .permissions import IsOwnerOrAdminOrReadOnly
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
+from .models import Notification, Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -12,7 +12,7 @@ from rest_framework import status, serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
 from .services import get_today_challenge
-from .serializers import FriendActivitySerializer, BasicUserSerializer, ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from .serializers import NotificationSerializer, FriendActivitySerializer, BasicUserSerializer, ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
 import requests
 import re
 import os
@@ -37,7 +37,6 @@ try:
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     gemini_model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
-    print(f"BŁĄD KRYTYCZNY: Nie udało się skonfigurować Gemini API. Sprawdź klucz API. Błąd: {e}")
     gemini_model = None
 
 class RegisterView(generics.CreateAPIView):
@@ -104,11 +103,6 @@ class ReadingExerciseCreate(generics.CreateAPIView):
         serializer.save(created_by=self.request.user)
 
 class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    API do pobierania, aktualizowania i usuwania ćwiczeń.
-    - Każdy zalogowany może CZYTAĆ (GET).
-    - Tylko WŁAŚCICIEL lub ADMIN może EDYTOWAĆ (PUT/PATCH) i USUWAĆ (DELETE).
-    """
     queryset = ReadingExercise.objects.all().prefetch_related('questions')
     serializer_class = ReadingExerciseSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrAdminOrReadOnly]
@@ -118,10 +112,6 @@ class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 
 
 class SubmitProgress(APIView):
-    """
-    Endpoint do zapisu postępu.
-    ZWRACA: dokładnie te same dane, które są zapisane w bazie.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -154,10 +144,10 @@ class SubmitProgress(APIView):
 
             if exercise.is_ranked:
                 if answers is None:
-                     return Response(
-                        {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                        return Response(
+                            {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                 
                 correct_questions = Question.objects.filter(exercise=exercise)
                 total_questions_count = correct_questions.count()
@@ -182,9 +172,9 @@ class SubmitProgress(APIView):
             progress.save()
 
             response_data = {
-                'wpm': progress.wpm,  # To co zapisane w bazie
-                'accuracy': progress.accuracy,  # To co zapisane w bazie
-                'ranking_points': progress.ranking_points,  # 0 jeśli < 60%
+                'wpm': progress.wpm, 
+                'accuracy': progress.accuracy, 
+                'ranking_points': progress.ranking_points, 
                 'counted_for_ranking': progress.counted_for_ranking,
                 'attempt_number': progress.attempt_number,
             }
@@ -205,7 +195,6 @@ class SubmitProgress(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            print(f"Błąd w SubmitProgress: {e}") 
             return Response(
                 {"error": "Wystąpił wewnętrzny błąd serwera."}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -228,9 +217,6 @@ class UserSettingsView(APIView):
 
 
 class UserStatusView(APIView):
-    """
-    Zwraca kluczowe dane użytkownika, w tym status admina i serię (streak).
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -320,7 +306,6 @@ class SearchExercises(APIView):
         except requests.exceptions.RequestException as e:
             return Response({"error": f"Błąd połączenia z Wikipedia: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
-            print(f"Błąd w SearchExercises: {e}") 
             return Response({"error": "Wystąpił nieoczekiwany błąd serwera."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -349,7 +334,6 @@ def toggle_favorite(request, pk):
         return Response({"error": "Nie znaleziono ćwiczenia"}, status=404)
 
     
-# --- POPRAWIONA SEKCJA QuestionListView ---
 class QuestionListView(generics.ListAPIView):
     serializer_class = QuestionSerializer
     permission_classes = [IsAuthenticated]
@@ -375,10 +359,6 @@ class QuestionListView(generics.ListAPIView):
 
 
 class LeaderboardView(APIView):
-    """
-    RANKING GLOBALNY
-    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -400,20 +380,16 @@ class LeaderboardView(APIView):
                 'id': user.id,
                 'rank': user.rank,
                 'username': user.username,
-                'total_points': user.total_ranking_points,  # Suma punktów z ZALICZONYCH
-                'average_wpm': round(user.average_wpm),  # Średnie WPM z ZALICZONYCH
-                'average_accuracy': round(user.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
-                'exercises_completed': user.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
+                'total_points': user.total_ranking_points, 
+                'average_wpm': round(user.average_wpm), 
+                'average_accuracy': round(user.average_accuracy, 1), 
+                'exercises_completed': user.ranking_exercises_completed, 
             })
 
         return Response({"leaderboard": leaderboard_data})
 
 
 class MyStatsView(APIView):
-    """
-    MOJE STATYSTYKI
-    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -421,7 +397,6 @@ class MyStatsView(APIView):
         from django.db.models import Window
         from django.db.models.functions import Rank
 
-        # Znajdź rangę użytkownika
         user_rank_data = CustomUser.objects.annotate(
             rank=Window(
                 expression=Rank(),
@@ -434,11 +409,10 @@ class MyStatsView(APIView):
         if user_rank_data and user_rank_data['total_ranking_points'] == 0:
             user_rank = "N/A"
 
-        # Pobierz ostatnie ZALICZONE wyniki
         recent_results_query = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True,
-            ranking_points__gt=0  # Tylko zaliczone (>= 60%)
+            ranking_points__gt=0 
         ).order_by('-completed_at')[:10]
 
         recent_results_data = []
@@ -453,11 +427,11 @@ class MyStatsView(APIView):
 
         stats = {
             'rank': user_rank,
-            'total_points': user.total_ranking_points,  # Suma punktów z ZALICZONYCH
-            'average_wpm': round(user.average_wpm),  # Średnie WPM z ZALICZONYCH
-            'average_accuracy': round(user.average_accuracy, 1),  # Średnie accuracy z ZALICZONYCH
-            'exercises_completed': user.ranking_exercises_completed,  # Liczba ZALICZONYCH prób
-            'recent_results': recent_results_data  # Ostatnie ZALICZONE wyniki
+            'total_points': user.total_ranking_points, 
+            'average_wpm': round(user.average_wpm), 
+            'average_accuracy': round(user.average_accuracy, 1), 
+            'exercises_completed': user.ranking_exercises_completed, 
+            'recent_results': recent_results_data 
         }
 
         return Response(stats)
@@ -473,9 +447,6 @@ class UserAchievementsView(APIView):
         return Response(serializer.data)
 
 class ExerciseAttemptStatusView(APIView):
-    """
-    Sprawdź czy użytkownik może zdobyć punkty rankingowe dla danego ćwiczenia
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, exercise_id):
@@ -563,7 +534,7 @@ class TodayChallengeView(APIView):
         return Response({
             "challenge": challenge_data,
             "is_completed": is_completed
-        })   
+        })  
     
 class UserProgressHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -582,10 +553,6 @@ class UserProgressHistoryView(APIView):
         return Response(data)
     
 class CollectionListView(generics.ListCreateAPIView):
-    """
-    API do listowania i tworzenia kolekcji.
-    Zwraca tylko kolekcje publiczne LUB własne danego użytkownika.
-    """
     serializer_class = ExerciseCollectionSerializer
     permission_classes = [IsAuthenticated]
 
@@ -602,10 +569,6 @@ class CollectionListView(generics.ListCreateAPIView):
         return {'request': self.request}
 
 class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    API do pobierania, edycji i usuwania JEDNEJ kolekcji.
-    Używa 'slug' jako klucza wyszukiwania.
-    """
     serializer_class = ExerciseCollectionSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'slug' 
@@ -633,9 +596,6 @@ class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_ai_questions(request):
-    """
-    Endpoint do generowania pytań z tekstu przy użyciu Gemini AI.
-    """
     if not gemini_model:
         return Response(
             {"error": "Model AI nie jest dostępny lub nie został poprawnie skonfigurowany."},
@@ -643,7 +603,7 @@ def generate_ai_questions(request):
         )
     
     if not request.user.is_staff:
-         return Response(
+        return Response(
             {"error": "Tylko administratorzy mogą generować pytania AI."},
             status=status.HTTP_403_FORBIDDEN
         )
@@ -685,17 +645,11 @@ def generate_ai_questions(request):
         return Response(questions_json, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
-        print(f"Błąd parsowania JSON od AI: {ai_response_text}")
         return Response({"error": "AI zwróciło niepoprawny format danych."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        print(f"Błąd w generate_ai_questions: {e}")
         return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class UserSearchView(generics.ListAPIView):
-    """
-    API do wyszukiwania użytkowników po nazwie.
-    Przyjmuje parametr ?q=
-    """
     serializer_class = BasicUserSerializer
     permission_classes = [IsAuthenticated]
 
@@ -712,10 +666,6 @@ class UserSearchView(generics.ListAPIView):
 
 
 class FollowingListView(APIView):
-    """
-    Zwraca listę ID użytkowników, których obserwuje zalogowany użytkownik.
-    Potrzebne dla frontendu, aby wiedzieć, czy pokazać "Follow" czy "Unfollow".
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -727,10 +677,6 @@ class FollowingListView(APIView):
 
 
 class FollowView(APIView):
-    """
-    API do obserwowania użytkownika.
-    Przyjmuje w body: { "user_id": ID_DO_OBSERWOWANIA }
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -744,7 +690,7 @@ class FollowView(APIView):
             )
 
         if follower.id == followed_id:
-             return Response(
+            return Response(
                 {"error": "Nie możesz obserwować samego siebie."},
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -769,10 +715,6 @@ class FollowView(APIView):
 
 
 class UnfollowView(APIView):
-    """
-    API do przestania obserwowania użytkownika.
-    Przyjmuje w body: { "user_id": ID_DO_ODSERWOWANIA }
-    """
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -805,10 +747,6 @@ class UnfollowView(APIView):
 
 
 class FriendsLeaderboardView(APIView):
-    """
-    RANKING ZNAJOMYCH
-    Pokazuje średnie z ZALICZONYCH prób (accuracy >= 60%, ranking_points > 0)
-    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
@@ -848,10 +786,6 @@ class FriendsLeaderboardView(APIView):
         return Response({"leaderboard": leaderboard_data})
 
 class FriendActivityFeedView(generics.ListAPIView):
-    """
-    Zwraca listę (Limit 15) ostatnich UDANYCH prób rankingowych od użytkowników,
-    których obserwuje zalogowany użytkownik.
-    """
     serializer_class = FriendActivitySerializer
     permission_classes = [IsAuthenticated]
 
@@ -867,7 +801,7 @@ class FriendActivityFeedView(generics.ListAPIView):
 
         queryset = UserProgress.objects.filter(
             counted_for_ranking=True, 
-            ranking_points__gt=0,    
+            ranking_points__gt=0,   
             user_id__in=following_ids 
         ).select_related(
             'user', 'exercise' 
@@ -878,12 +812,32 @@ class FriendActivityFeedView(generics.ListAPIView):
         return queryset
     
 class GoogleLoginView(SocialLoginView):
-    """
-    Ten widok obsługuje logowanie przez Google.
-    Przyjmuje 'access_token' od frontendu (z biblioteki @react-oauth/google)
-    i zwraca standardowe tokeny JWT (access, refresh) Twojej aplikacji.
-    """
     adapter_class = GoogleOAuth2Adapter
     client_class = OAuth2Client
     
-    callback_url = "http://localhost:5173"     
+    callback_url = "http://localhost:5173"
+
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        notifications = Notification.objects.filter(recipient=user).select_related('actor')
+        return notifications
+
+
+class MarkAllNotificationsAsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        updated = Notification.objects.filter(
+            recipient=request.user, 
+            read=False
+        ).update(read=True)
+        
+        return Response({
+            "updated": updated,
+            "message": f"Oznaczono {updated} powiadomień jako przeczytane"
+        }, status=status.HTTP_200_OK)
+    

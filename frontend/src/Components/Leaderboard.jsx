@@ -47,7 +47,6 @@ const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }
     <div className="card card-elevated overflow-hidden p-0">
       <div className="overflow-x-auto">
         <div className="min-w-[900px]">
-          {/* Nagłówek Tabeli */}
           <div className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-border text-text-secondary uppercase text-xs font-semibold">
             <span>Pozycja</span>
             <span>Użytkownik</span>
@@ -58,13 +57,11 @@ const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }
             <span className="text-right">Akcja</span>
           </div>
 
-          {/* Wiersze Tabeli */}
           {users.map((user) => (
             <div
               key={user.id}
               className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.5fr] gap-4 items-center p-4 border-b border-border transition-colors hover:bg-background-surface-hover"
             >
-              {/* Ranga */}
               <div 
                 className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold"
                 style={{
@@ -75,7 +72,6 @@ const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }
                 {getMedalIcon(user.rank)}
               </div>
 
-              {/* Nazwa + Avatar */}
               <div className="flex items-center gap-3">
                 <img 
                   src={user.avatar_url || `${API_BASE_URL}/media/avatars/default.png`}
@@ -93,13 +89,11 @@ const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }
                 </div>
               </div>
 
-              {/* Staty */}
               <div className="text-center text-lg font-bold text-warning">{user.total_points}</div>
               <div className="text-center text-lg">{user.average_wpm}</div>
               <div className="text-center text-lg">{user.average_accuracy}%</div>
               <div className="text-center text-lg">{user.exercises_completed}</div>
 
-              {/* Przycisk Akcji */}
               <div className="text-right">
                 {user.id !== currentUserId && (
                   <button
@@ -119,23 +113,18 @@ const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }
 };
 
 
-// === GŁÓWNY KOMPONENT Leaderboard ===
 export default function Leaderboard({ api }) {
-  // Stary stan
   const [leaderboard, setLeaderboard] = useState([]);
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Nowy stan zakładek
   const [activeTab, setActiveTab] = useState("my-stats"); 
 
-  // Nowy stan dla znajomych
   const [friendsLeaderboard, setFriendsLeaderboard] = useState([]);
   const [followingIds, setFollowingIds] = useState([]); 
   const [currentUserId, setCurrentUserId] = useState(null);
 
-  // Nowy stan dla wyszukiwarki
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -143,7 +132,6 @@ export default function Leaderboard({ api }) {
   const navigate = useNavigate();
   const token = localStorage.getItem("access");
 
-  // --- Funkcja Follow/Unfollow (bez zmian) ---
   const handleFollowToggle = async (userIdToToggle, isCurrentlyFollowing) => {
     if (!api) return;
     
@@ -168,7 +156,6 @@ export default function Leaderboard({ api }) {
     }
   };
 
-  // --- Funkcja Search (bez zmian) ---
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
     if (!searchQuery.trim() || !api) {
@@ -187,7 +174,6 @@ export default function Leaderboard({ api }) {
     }
   };
 
-  // --- Funkcja Friends Leaderboard (bez zmian) ---
   const fetchFriendsLeaderboard = useCallback(async () => {
     if (!api) return;
     setLoading(true);
@@ -203,7 +189,6 @@ export default function Leaderboard({ api }) {
   }, [api]); 
 
   
-  // --- Główny useEffect (bez zmian) ---
   useEffect(() => {
     if (!token || !api) {
       navigate("/login");
@@ -213,7 +198,7 @@ export default function Leaderboard({ api }) {
     try {
         const decoded = jwtDecode(token);
         setCurrentUserId(decoded.user_id);
-    } catch (e) { console.error("Błąd tokenu"); } // Ten błąd widziałeś w konsoli
+    } catch (e) { console.error("Błąd tokenu"); }
 
     async function fetchData() {
       setLoading(true);
@@ -240,7 +225,6 @@ export default function Leaderboard({ api }) {
     fetchData();
   }, [token, navigate, api]);
 
-  // Efekt do ładowania danych zakładek (bez zmian)
   useEffect(() => {
     if (activeTab === 'friends') {
       fetchFriendsLeaderboard();
@@ -256,11 +240,9 @@ export default function Leaderboard({ api }) {
     );
   }
 
-  // --- Render (z teraz działającymi helperami) ---
   return (
     <div className="page-wrapper">
       <div className="container" style={{ maxWidth: '1400px' }}>
-        {/* Header (bez zmian) */}
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
             <h1 className="text-gradient mb-2" style={{ fontSize: '2.5rem' }}>
@@ -278,7 +260,6 @@ export default function Leaderboard({ api }) {
           </button>
         </header>
 
-        {/* Karta Moich Statystyk (teraz zadziała) */}
         {myStats && (
           <div className="card card-elevated animate-fade-in" style={{
             padding: '2rem',
@@ -292,12 +273,12 @@ export default function Leaderboard({ api }) {
                     <div className="text-sm text-text-secondary mb-2">Twoja Pozycja</div>
                     <div style={{
                         width: '80px', height: '80px', borderRadius: '50%',
-                        background: getRankBadge(myStats.rank).bg, // <-- Ta linia powodowała błąd
-                        boxShadow: `0 4px 12px ${getRankBadge(myStats.rank).shadow}`, // <-- Ta linia powodowała błąd
+                        background: getRankBadge(myStats.rank).bg, 
+                        boxShadow: `0 4px 12px ${getRankBadge(myStats.rank).shadow}`, 
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '2rem', fontWeight: 700
                     }}>
-                        {getMedalIcon(myStats.rank)} {/* <-- Ta linia powodowała błąd */}
+                        {getMedalIcon(myStats.rank)} 
                     </div>
                 </div>
                 <div className="card p-4 text-center bg-background-surface">
@@ -320,7 +301,6 @@ export default function Leaderboard({ api }) {
           </div>
         )}
 
-        {/* Zakładki (Tabs) (bez zmian) */}
         <div className="flex gap-1 mb-8 border-b-2 border-border animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <button
             onClick={() => setActiveTab("my-stats")}
@@ -348,7 +328,6 @@ export default function Leaderboard({ api }) {
           </button>
         </div>
 
-        {/* Dynamiczna zawartość zakładek (bez zmian) */}
         <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
           
           {activeTab === "my-stats" && (
@@ -357,7 +336,6 @@ export default function Leaderboard({ api }) {
                 <div className="flex flex-col gap-6">
                   <ProgressCharts />
                   <MyAchievements />
-                  {/* ... (logika wyświetlania ostatnich wyników) ... */}
                 </div>
               ) : (
                 <div className="card card-elevated text-center p-12">

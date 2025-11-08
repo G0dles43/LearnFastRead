@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import UserAchievement, Achievement, Question, ReadingExercise, UserProgress, CustomUser
+from .models import (
+    UserAchievement, Achievement, Question, ReadingExercise, 
+    UserProgress, CustomUser, Notification 
+)
 
 class QuestionInline(admin.TabularInline):
     model = Question
@@ -15,22 +18,13 @@ class ReadingExerciseAdmin(admin.ModelAdmin):
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    """
-    Używamy UserAdmin, aby zachować całą logikę
-    zarządzania hasłami, uprawnieniami itp.
-    Dodajemy nasze własne pola do widoku admina.
-    """
     list_display = ('username', 'email', 'is_staff', 'total_ranking_points', 'current_streak')
-    
     search_fields = ('username', 'email')
     
-    # KLUCZOWA ZMIANA: Dodano pole 'avatar' do fieldsets
     fieldsets = UserAdmin.fieldsets + (
-        ('Profil', {
-            'fields': ('avatar',),  # Osobna sekcja dla avatara
-        }),
         ('Statystyki i Ustawienia FastReader', {
             'fields': (
+                'avatar',
                 'speed', 'muted', 'mode', 'chunk_size', 'highlight_width', 'highlight_height',
                 'total_ranking_points', 'ranking_exercises_completed', 
                 'average_wpm', 'average_accuracy',
@@ -42,11 +36,10 @@ class CustomUserAdmin(UserAdmin):
     add_fieldsets = UserAdmin.add_fieldsets + (
         (None, {
             'fields': (
-                'email', 'avatar', 'speed', 'mode'  # Dodano avatar
+                'email', 'speed', 'mode'
             ),
         }),
     )
-
 
 admin.site.register(UserProgress)
 
@@ -58,3 +51,8 @@ class AchievementAdmin(admin.ModelAdmin):
 class UserAchievementAdmin(admin.ModelAdmin):
     list_display = ('user', 'achievement', 'unlocked_at')
     list_filter = ('achievement',)
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'actor', 'verb', 'read', 'created_at')
+    list_filter = ('read', 'created_at')

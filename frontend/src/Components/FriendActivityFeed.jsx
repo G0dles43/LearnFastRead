@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-// Funkcja pomocnicza do formatowania czasu (bez zmian)
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
   let interval = seconds / 31536000;
@@ -17,7 +16,6 @@ const timeAgo = (date) => {
   return "przed chwilą";
 };
 
-// Komponent dla pojedynczego wpisu w feedzie (bez zmian)
 const ActivityItem = ({ activity }) => {
   const { user, exercise_title, wpm, ranking_points, completed_at, completed_daily_challenge } = activity;
 
@@ -62,7 +60,6 @@ const ActivityItem = ({ activity }) => {
 };
 
 
-// Główny komponent Feedu
 export default function FriendActivityFeed({ api }) {
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);

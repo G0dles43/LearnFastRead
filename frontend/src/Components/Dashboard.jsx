@@ -188,9 +188,10 @@ export default function Dashboard({ api }) {
       <div className="container">
         
         <DashboardHeader 
-            userName={userStatus?.username || "..."} 
-            currentStreak={userStatus?.current_streak || 0}
-            isLoading={statusLoading}
+          userName={userStatus?.username || "..."} 
+          currentStreak={userStatus?.current_streak || 0}
+          isLoading={statusLoading}
+          api={api} 
         />
 
         <QuickActions 
@@ -216,10 +217,8 @@ export default function Dashboard({ api }) {
 
         <div className="divider" /> 
 
-        {/* Główna siatka (Sidebar + Lista ćwiczeń) */}
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 mt-12 items-start">
           
-          {/* Kolumna 1: Sidebar (z animacją i sticky) */}
           <aside className="animate-fade-in sticky top-8" style={{ animationDelay: '0.4s' }}>
             <ExerciseFilterSidebar
               filterOptions={filterOptions}
