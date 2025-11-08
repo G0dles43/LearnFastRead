@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+// Funkcje pomocnicze (bez zmian)
 const msToWpm = (ms) => {
   if (!ms || ms <= 0) return 300;
   return Math.round(60000 / ms);
@@ -28,6 +29,9 @@ export default function Settings({ api }) {
   const [highlightHeight, setHighlightHeight] = useState(300);
   const [chunkSize, setChunkSize] = useState(3);
 
+  // === ZMIANA 1: Dodajemy stan dla limitu WPM ===
+  const [maxWpmLimit, setMaxWpmLimit] = useState(350); // Domyślna wartość, zaraz ją nadpiszemy
+
   useEffect(() => {
     if (!token || !api) {
       console.log("Settings: Brak tokenu lub instancji api.");
@@ -45,15 +49,22 @@ export default function Settings({ api }) {
         setHighlightWidth(Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, res.data.highlight_width || 600)));
         setHighlightHeight(Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, res.data.highlight_height || 300)));
         setChunkSize(res.data.chunk_size || 3);
+
+        // === ZMIANA 2: Pobieramy limit WPM z API ===
+        // Upewnij się, że UserSettingsSerializer w serializers.py zwraca to pole!
+        setMaxWpmLimit(res.data.max_wpm_limit || 350);
+
       })
       .catch((err) => {
         console.error("Błąd pobierania ustawień:", err);
+        // Ustawienia domyślne w razie błędu
         setWpm(300);
         setIsMuted(false);
         setMode('rsvp');
         setHighlightWidth(600);
         setHighlightHeight(300);
         setChunkSize(3);
+        setMaxWpmLimit(350); // Domyślny limit
       })
       .finally(() => {
         setLoading(false);
@@ -63,7 +74,16 @@ export default function Settings({ api }) {
   const handleSave = () => {
     if (!token || !api) return alert("Nie jesteś zalogowany lub wystąpił błąd!");
 
-    const speedMsToSend = wpmToMs(wpm);
+    // === ZMIANA 3: Walidacja po stronie frontendu ===
+    // (Chociaż backend też to robi, dobrze jest zatrzymać suwak)
+    let wpmToSave = wpm;
+    if (wpm > maxWpmLimit) {
+      console.warn(`Próba ustawienia ${wpm} WPM przy limicie ${maxWpmLimit}. Resetuję do limitu.`);
+      setWpm(maxWpmLimit); // Zresetuj stan wizualny do max
+      wpmToSave = maxWpmLimit; // Zapisz maksymalną dozwoloną
+    }
+
+    const speedMsToSend = wpmToMs(wpmToSave);
     const finalWidth = Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, highlightWidth));
     const finalHeight = Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, highlightHeight));
 
@@ -81,11 +101,20 @@ export default function Settings({ api }) {
         navigate("/dashboard");
       })
       .catch((err) => {
-        console.error("Błąd zapisu ustawień:", err);
-        alert("Błąd zapisu ustawień.");
+        console.error("Błąd zapisu ustawień:", err.response);
+        // === ZMIANA 4: Wyświetlanie błędu walidacji z backendu ===
+        // Twoje serializers.py teraz zwracają ładny błąd
+        if (err.response?.data?.speed) {
+            alert(`Błąd: ${err.response.data.speed[0]}`);
+            // Jeśli błąd pochodzi z backendu, zresetuj WPM do limitu
+            setWpm(maxWpmLimit);
+        } else {
+            alert("Nieznany błąd zapisu ustawień.");
+        }
       });
   };
 
+  // Reszta handlerów (bez zmian)
   const handleWidthChange = (e) => {
     const value = parseInt(e.target.value, 10);
     const clampedValue = Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, isNaN(value) ? HIGHLIGHT_WIDTH_MIN : value));
@@ -120,7 +149,7 @@ export default function Settings({ api }) {
       backgroundAttachment: 'fixed' 
     }}>
       <div className="container" style={{ maxWidth: '900px' }}>
-        {/* Header */}
+        {/* Header (bez zmian) */}
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
             <h1 className="text-gradient mb-2">Ustawienia</h1>
@@ -138,9 +167,9 @@ export default function Settings({ api }) {
 
         {/* Main Settings Card */}
         <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          {/* Reading Mode */}
+          {/* Reading Mode (bez zmian) */}
           <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
@@ -148,7 +177,8 @@ export default function Settings({ api }) {
               Tryb czytania
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <button
+              {/* Przyciski Trybów (bez zmian) */}
+               <button
                 onClick={() => setMode('rsvp')}
                 className="card"
                 style={{
@@ -245,7 +275,7 @@ export default function Settings({ api }) {
 
           <div className="divider" />
 
-          {/* Speed Settings */}
+          {/* Speed Settings (ZMIENIONE) */}
           <div style={{ marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -271,10 +301,11 @@ export default function Settings({ api }) {
                 </div>
               </div>
 
+              {/* === ZMIANA 5: Suwak ograniczony przez maxWpmLimit === */}
               <input
                 type="range"
                 min="100"
-                max="1500"
+                max={maxWpmLimit} // Używamy dynamicznego limitu
                 step="10"
                 value={wpm}
                 onChange={(e) => setWpm(parseInt(e.target.value))}
@@ -282,7 +313,7 @@ export default function Settings({ api }) {
                   width: '100%',
                   height: '12px',
                   borderRadius: '6px',
-                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((wpm - 100) / 1400) * 100}%, var(--border) ${((wpm - 100) / 1400) * 100}%, var(--border) 100%)`,
+                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) 100%)`,
                   outline: 'none',
                   appearance: 'none',
                   cursor: 'pointer'
@@ -291,12 +322,31 @@ export default function Settings({ api }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.75rem' }}>
                 <span>100 WPM</span>
                 <span style={{ color: 'var(--text-muted)' }}>Opóźnienie: {wpmToMs(wpm)}ms / słowo</span>
-                <span>1500 WPM</span>
+                <span>{maxWpmLimit} WPM (Twój limit)</span>
               </div>
             </div>
+
+            {/* === ZMIANA 6: Informacja o odblokowaniu === */}
+            <div className="card" style={{
+              background: 'rgba(99, 102, 241, 0.1)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              padding: '1rem',
+              marginTop: '1.5rem',
+              textAlign: 'center',
+              fontSize: '0.9rem'
+            }}>
+              <strong style={{ color: 'var(--primary-light)', display: 'block', marginBottom: '0.5rem' }}>
+                Twój obecny limit prędkości to {maxWpmLimit} WPM.
+              </strong>
+              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                Aby odblokować wyższy limit, ukończ ćwiczenie rankingowe
+                z prędkością {maxWpmLimit} WPM (lub wyższą) i trafnością {'>'}60%.
+              </p>
+            </div>
+            
           </div>
 
-          {/* Chunking Settings */}
+          {/* Chunking Settings (bez zmian) */}
           {mode === "chunking" && (
             <>
               <div className="divider" />
@@ -354,7 +404,7 @@ export default function Settings({ api }) {
             </>
           )}
 
-          {/* Highlight Settings */}
+          {/* Highlight Settings (bez zmian) */}
           {mode === "highlight" && (
             <>
               <div className="divider" />
@@ -447,7 +497,6 @@ export default function Settings({ api }) {
 
           <div className="divider" />
 
-          {/* Audio Settings */}
           <div style={{ marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -487,7 +536,6 @@ export default function Settings({ api }) {
             </label>
           </div>
 
-          {/* Save Button */}
           <button onClick={handleSave} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>

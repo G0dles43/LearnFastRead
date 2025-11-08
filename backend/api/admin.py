@@ -25,7 +25,9 @@ class CustomUserAdmin(UserAdmin):
         ('Statystyki i Ustawienia FastReader', {
             'fields': (
                 'avatar',
-                'speed', 'muted', 'mode', 'chunk_size', 'highlight_width', 'highlight_height',
+                'speed',
+                'max_wpm_limit',
+                'muted', 'mode', 'chunk_size', 'highlight_width', 'highlight_height',
                 'total_ranking_points', 'ranking_exercises_completed', 
                 'average_wpm', 'average_accuracy',
                 'current_streak', 'max_streak', 'last_streak_date'

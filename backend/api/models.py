@@ -7,6 +7,7 @@ from django.db.models import Sum, Avg, Count
 from django.utils.text import slugify
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from .wpm_milestones import DEFAULT_WPM_LIMIT, get_next_wpm_limit, MIN_PASS_ACCURACY
 
 class CustomUser(AbstractUser):
     avatar = models.ImageField(
@@ -17,6 +18,12 @@ class CustomUser(AbstractUser):
 )
 
     speed = models.IntegerField(default=200)
+
+    max_wpm_limit = models.IntegerField(
+        default=DEFAULT_WPM_LIMIT, 
+        help_text="Maksymalny odblokowany WPM przez użytkownika"
+    )
+
     muted = models.BooleanField(default=False)
     
     MODE_CHOICES = (
@@ -140,6 +147,41 @@ class UserProgress(models.Model):
         points = self.wpm * (self.accuracy / 100) * length_multiplier
         return int(points)
     
+    def _check_and_update_wpm_milestone(self):
+        """
+        Sprawdza, czy użytkownik kwalifikuje się do odblokowania nowego limitu WPM.
+        """
+        # Lazy import, aby uniknąć problemów z kolejnością definicji modeli
+        from .models import Notification 
+        user = self.user
+        
+        
+        if self.accuracy < MIN_PASS_ACCURACY:
+            return  
+
+        if not self.exercise.is_ranked:
+            return  
+
+        if self.wpm < user.max_wpm_limit:
+            return 
+
+        new_limit = get_next_wpm_limit(user.max_wpm_limit)
+
+        if new_limit > user.max_wpm_limit:
+            old_limit = user.max_wpm_limit
+            user.max_wpm_limit = new_limit
+            user.save()
+            
+            try:
+                Notification.objects.create(
+                    recipient=user,
+                    actor=user,
+                    verb=f"odblokował nowy limit prędkości: {new_limit} WPM! Gratulacje!",
+                )
+                print(f"Użytkownik {user.username} odblokował {new_limit} WPM (z {old_limit} WPM)")
+            except Exception as e:
+                print(f"Błąd tworzenia powiadomienia o WPM: {e}")
+    
     def can_resubmit_for_ranking(self):
         """Sprawdza czy użytkownik może ponownie wysłać wynik do rankingu (po 30 dniach)"""
         if not self.counted_for_ranking:
@@ -169,11 +211,12 @@ class UserProgress(models.Model):
             
         self._update_user_streak()
 
+        self._check_and_update_wpm_milestone()
+
         if self.counted_for_ranking:
             self.update_user_stats()
             self._check_for_new_achievements()
         else:
-            # Zapiszmy chociaż serię, nawet jeśli reszta statystyk się nie zmienia
             self.user.save()
 
     def _handle_ranking_eligibility(self):

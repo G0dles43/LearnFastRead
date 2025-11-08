@@ -7,6 +7,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum
 from django.db import transaction
+from .wpm_milestones import DEFAULT_WPM_LIMIT
 
 from dj_rest_auth.serializers import UserDetailsSerializer
 
@@ -32,12 +33,14 @@ class BasicUserSerializer(serializers.ModelSerializer):
 
 class UserStatusSerializer(serializers.ModelSerializer):
     is_admin = serializers.SerializerMethodField()
+    max_wpm_limit = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'username', 'is_staff', 'is_superuser', 'is_admin', 
-            'current_streak', 'max_streak'
+            'current_streak', 'max_streak',
+            'max_wpm_limit'
         ]
 
     def get_is_admin(self, obj):
@@ -65,8 +68,34 @@ class FriendActivitySerializer(serializers.ModelSerializer):
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height', 'chunk_size']
+        max_wpm_limit = serializers.IntegerField(read_only=True)
+        fields = ['speed', 'muted', 'mode', 'highlight_width', 'highlight_height', 'chunk_size', 'max_wpm_limit']
+    def validate_speed(self, value_ms):
+        """
+        Sprawdza, czy ustawiana prędkość (w MS) jest dozwolona.
+        """
+        user = self.instance 
+        
+        if not user:
+            return value_ms
 
+        max_wpm = user.max_wpm_limit
+        
+        if max_wpm <= 0:
+            max_wpm = DEFAULT_WPM_LIMIT
+            
+        if max_wpm >= 1500:
+            min_ms_allowed = 40
+        else:
+            min_ms_allowed = 60000 / max_wpm
+
+        if value_ms < (min_ms_allowed - 1):
+            raise serializers.ValidationError(
+                f"Nie możesz ustawić prędkości wyższej niż Twój limit ({max_wpm} WPM). "
+                f"Ukończ ćwiczenie rankingowe na poziomie {max_wpm} WPM (lub wyższym) z trafnością >60%, aby odblokować kolejny poziom."
+            )
+        
+        return value_ms    
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
