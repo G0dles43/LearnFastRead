@@ -12,12 +12,17 @@ from rest_framework import status, serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
 from .services import get_today_challenge
-from .serializers import NotificationSerializer, FriendActivitySerializer, BasicUserSerializer, ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, UserProgressSerializer
+from .serializers import (
+    NotificationSerializer, FriendActivitySerializer, BasicUserSerializer, 
+    ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, 
+    QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, 
+    UserProgressSerializer
+)
 import requests
 import re
 import os
 import json
-import random  
+import random 
 import google.generativeai as genai
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -114,6 +119,8 @@ class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 class SubmitProgress(APIView):
     permission_classes = [IsAuthenticated]
 
+    MAX_HUMAN_WPM = 1500
+
     def post(self, request, *args, **kwargs):
         data = request.data
         user = request.user
@@ -137,6 +144,28 @@ class SubmitProgress(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
+            word_count = exercise.word_count
+            if word_count > 0: 
+                min_time_per_word_ms = 60000.0 / self.MAX_HUMAN_WPM
+                min_possible_time_ms = word_count * min_time_per_word_ms
+                
+                if reading_time_ms < (min_possible_time_ms * 0.95):
+                    print(f"ANTI-CHEAT: User {user.username} (ID: {user.id}) przesłał niemożliwy czas!")
+                    print(f"Tekst: {word_count} słów, Czas: {reading_time_ms}ms, Wymagane min: {min_possible_time_ms}ms")
+                    
+                    progress = UserProgress(
+                        user=user,
+                        exercise=exercise,
+                        wpm=9999,
+                        accuracy=0 
+                    )
+                    progress.save() 
+                    
+                    return Response(
+                        {"error": "Wykryto niemożliwie szybki czas czytania. Próba anulowana."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                
             minutes = reading_time_ms / 60000.0
             wpm = round(exercise.word_count / minutes)
 
@@ -144,10 +173,10 @@ class SubmitProgress(APIView):
 
             if exercise.is_ranked:
                 if answers is None:
-                        return Response(
-                            {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
+                    return Response(
+                        {"error": "Brak 'answers' dla ćwiczenia rankingowego."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 
                 correct_questions = Question.objects.filter(exercise=exercise)
                 total_questions_count = correct_questions.count()
@@ -195,6 +224,7 @@ class SubmitProgress(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
+            print(f"Błąd w SubmitProgress: {e}") 
             return Response(
                 {"error": "Wystąpił wewnętrzny błąd serwera."}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -212,6 +242,9 @@ class UserSettingsView(APIView):
         serializer = UserSettingsSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            if not request.user.has_completed_calibration:
+                request.user.has_completed_calibration = True
+                request.user.save(update_fields=['has_completed_calibration'])
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -611,7 +644,22 @@ def generate_ai_questions(request):
     try:
         content = request.data.get('content')
         topic = request.data.get('topic', 'Temat ogólny')
-        count = int(request.data.get('count', 15))
+        
+        try:
+            total_count = int(request.data.get('total_count', 15))
+            open_count = int(request.data.get('open_count', 10))
+            choice_count = int(request.data.get('choice_count', 5))
+        except (ValueError, TypeError):
+            return Response({"error": "Liczba pytań musi być liczbą całkowitą."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if total_count < 15:
+             # Zmniejszyłem limit do 5 na wszelki wypadek, jeśli chcesz testować mniejsze partie
+             if total_count < 5:
+                return Response({"error": "Minimalna liczba pytań to 5."}, status=status.HTTP_400_BAD_REQUEST)
+        if open_count + choice_count != total_count:
+            return Response({"error": f"Suma pytań ({open_count} otwartych + {choice_count} zamkniętych) nie zgadza się z sumą całkowitą ({total_count})."}, status=status.HTTP_400_BAD_REQUEST)
+        if open_count < 0 or choice_count < 0:
+            return Response({"error": "Liczba pytań nie może być ujemna."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not content or len(content) < 50:
             return Response(
@@ -620,12 +668,36 @@ def generate_ai_questions(request):
             )
 
         prompt = f"""
-        Jesteś asystentem edukacyjnym. Twoim zadaniem jest wygenerowanie {count} pytań otwartych
-        z podanego materiału źródłowego. Odpowiedzi muszą być BARDZO KRÓTKIE (1-3 słowa).
-
+        Jesteś asystentem edukacyjnym. Twoim zadaniem jest wygenerowanie DOKŁADNIE:
+        - {open_count} pytań otwartych ('open')
+        - {choice_count} pytań zamkniętych ('choice')
+        
+        ...razem {total_count} pytań z podanego materiału źródłowego.
         Pytania mają dotyczyć tematu: "{topic}".
-        Zawsze zwracaj odpowiedź wyłącznie jako tablicę obiektów JSON, bez żadnego dodatkowego tekstu.
-        Format JSON: [ {{ "question": "...", "answer": "..." }} ]
+        
+        Zawsze zwracaj odpowiedź wyłącznie jako JEDNĄ tablicę obiektów JSON, bez żadnego dodatkowego tekstu.
+        Użyj DOKŁADNIE tych kluczy: "question_type", "text", "correct_answer", "option_1", "option_2", "option_3", "option_4".
+
+        Format JSON:
+        [
+            {{
+                "question_type": "open",
+                "text": "Jak nazywał się pierwszy król Polski?",
+                "correct_answer": "Bolesław Chrobry",
+                "option_1": null, "option_2": null, "option_3": null, "option_4": null
+            }},
+            {{
+                "question_type": "choice",
+                "text": "W którym roku odbył się chrzest Polski?",
+                "correct_answer": "966",
+                "option_1": "966", "option_2": "1000", "option_3": "1025", "option_4": "997"
+            }},
+            ...
+        ]
+
+        - Dla pytań 'open', odpowiedzi (correct_answer) muszą być BARDZO KRÓTKIE (1-3 słowa). Pola opcji muszą być null.
+        - Dla pytań 'choice', MUSISZ podać 4 opcje (option_1 do option_4). Jedna z nich MUSI być poprawną odpowiedzią.
+        - Zachowaj kolejność: najpierw wszystkie pytania otwarte, potem wszystkie zamknięte.
 
         Oto materiał źródłowy:
         ---
@@ -638,15 +710,38 @@ def generate_ai_questions(request):
         response = gemini_model.generate_content(prompt)
         ai_response_text = response.text
 
-        cleaned_text = re.sub(r'```json\n|```', '', ai_response_text).strip()
+        # === POCZĄTEK POPRAWKI ===
+        # Stary kod re.sub był błędny. Ten kod jest bezpieczniejszy:
+        # 1. Usuwa białe znaki z początku i końca
+        cleaned_text = ai_response_text.strip()
         
+        # 2. Sprawdza, czy tekst zaczyna się od ```json
+        if cleaned_text.startswith('```json'):
+            cleaned_text = cleaned_text[7:] # Usuwa ```json
+            cleaned_text = cleaned_text.lstrip() # Usuwa ewentualne białe znaki/linie po
+            
+        # 3. Sprawdza, czy tekst kończy się na ```
+        if cleaned_text.endswith('```'):
+            cleaned_text = cleaned_text[:-3] # Usuwa ```
+            cleaned_text = cleaned_text.rstrip() # Usuwa ewentualne białe znaki/linie przed
+        
+        # 4. Ostatnie czyszczenie na wszelki wypadek
+        cleaned_text = cleaned_text.strip()
+        
+        # === KONIEC POPRAWKI ===
+
         questions_json = json.loads(cleaned_text)
+        
+        if len(questions_json) != total_count:
+                print(f"OSTRZEŻENIE AI: Miało być {total_count} pytań, wygenerowano {len(questions_json)}")
 
         return Response(questions_json, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
-        return Response({"error": "AI zwróciło niepoprawny format danych."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        print(f"Błąd dekodowania JSON z AI: {ai_response_text}") # Ten log jest teraz jeszcze ważniejszy
+        return Response({"error": "AI zwróciło niepoprawny format danych (JSONDecodeError). Spróbuj ponownie."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
+        print(f"Błąd generatora AI: {e}")
         return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class UserSearchView(generics.ListAPIView):
@@ -801,7 +896,7 @@ class FriendActivityFeedView(generics.ListAPIView):
 
         queryset = UserProgress.objects.filter(
             counted_for_ranking=True, 
-            ranking_points__gt=0,   
+            ranking_points__gt=0,    
             user_id__in=following_ids 
         ).select_related(
             'user', 'exercise' 
@@ -840,4 +935,3 @@ class MarkAllNotificationsAsReadView(APIView):
             "updated": updated,
             "message": f"Oznaczono {updated} powiadomień jako przeczytane"
         }, status=status.HTTP_200_OK)
-    

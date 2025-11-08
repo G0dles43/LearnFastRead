@@ -24,6 +24,11 @@ class CustomUser(AbstractUser):
         help_text="Maksymalny odblokowany WPM przez użytkownika"
     )
 
+    has_completed_calibration = models.BooleanField(
+        default=False, 
+        help_text="Czy użytkownik przeszedł pierwszą kalibrację ustawień"
+    )
+
     muted = models.BooleanField(default=False)
     
     MODE_CHOICES = (
@@ -285,11 +290,10 @@ class UserProgress(models.Model):
         """
         user = self.user
         
-        # Pobierz tylko ZALICZONE próby (accuracy >= 60%, więc ranking_points > 0)
         successful_attempts = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True,
-            ranking_points__gt=0  # To automatycznie filtruje accuracy >= 60%
+            ranking_points__gt=0  
         )
         
         stats = successful_attempts.aggregate(
@@ -299,19 +303,28 @@ class UserProgress(models.Model):
             avg_accuracy=Avg('accuracy')
         )
         
+        fields_to_update = ['current_streak', 'max_streak', 'last_streak_date']
+
         if stats['count'] and stats['count'] > 0:
             user.total_ranking_points = stats['total_points'] or 0
             user.ranking_exercises_completed = stats['count']
             user.average_wpm = round(stats['avg_wpm'], 1)
             user.average_accuracy = round(stats['avg_accuracy'], 1)
+            fields_to_update.extend([
+                'total_ranking_points', 'ranking_exercises_completed', 
+                'average_wpm', 'average_accuracy'
+            ])
         else:
-            # Użytkownik nie ma żadnych zaliczonych prób
             user.total_ranking_points = 0
             user.ranking_exercises_completed = 0
             user.average_wpm = 0
             user.average_accuracy = 0
+            fields_to_update.extend([
+                'total_ranking_points', 'ranking_exercises_completed', 
+                'average_wpm', 'average_accuracy'
+            ])
             
-        user.save()
+        user.save(update_fields=fields_to_update)
 
     def _check_for_new_achievements(self):
         """Sprawdza i przyznaje osiągnięcia"""

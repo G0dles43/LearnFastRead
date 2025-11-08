@@ -2,13 +2,14 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
 from .models import Friendship, UserAchievement, Notification, CustomUser, UserProgress
+from django.db.models import F, Window
+from django.db.models.functions import Rank
 
-print("📢 Plik signals.py został zaimportowany!")
+print("Plik signals.py został zaimportowany!")
 
-# === OBSERWOWANIE ===
 @receiver(post_save, sender=Friendship)
 def create_follow_notification(sender, instance, created, **kwargs):
-    print(f"🔔 [SIGNAL] Friendship post_save - created={created}")
+    print(f"[SIGNAL] Friendship post_save - created={created}")
     
     if created:
         try:
@@ -22,16 +23,15 @@ def create_follow_notification(sender, instance, created, **kwargs):
                 object_id=instance.follower.id
             )
             
-            print(f"✅ [SIGNAL] Powiadomienie follow utworzone!")
+            print(f"[SIGNAL] Powiadomienie follow utworzone!")
             
         except Exception as e:
-            print(f"❌ [SIGNAL ERROR] {e}")
+            print(f"[SIGNAL ERROR] {e}")
 
-# === ZAPRZESTANIE OBSERWOWANIA (NOWE!) ===
 @receiver(pre_delete, sender=Friendship)
 def create_unfollow_notification(sender, instance, **kwargs):
     """Powiadomienie gdy ktoś przestaje obserwować"""
-    print(f"🔴 [SIGNAL] Friendship pre_delete")
+    print(f"[SIGNAL] Friendship pre_delete")
     
     try:
         user_content_type = ContentType.objects.get_for_model(CustomUser)
@@ -44,15 +44,14 @@ def create_unfollow_notification(sender, instance, **kwargs):
             object_id=instance.follower.id
         )
         
-        print(f"✅ [SIGNAL] Powiadomienie unfollow utworzone!")
+        print(f"[SIGNAL] Powiadomienie unfollow utworzone!")
         
     except Exception as e:
-        print(f"❌ [SIGNAL ERROR] {e}")
+        print(f"[SIGNAL ERROR] {e}")
 
-# === OSIĄGNIĘCIA ===
 @receiver(post_save, sender=UserAchievement)
 def create_achievement_notification(sender, instance, created, **kwargs):
-    print(f"🏆 [SIGNAL] UserAchievement post_save - created={created}")
+    print(f"[SIGNAL] UserAchievement post_save - created={created}")
     
     if created:
         try:
@@ -66,79 +65,32 @@ def create_achievement_notification(sender, instance, created, **kwargs):
                 object_id=instance.achievement.pk
             )
             
-            print(f"✅ [SIGNAL] Achievement notification utworzone!")
+            print(f"[SIGNAL] Achievement notification utworzone!")
             
         except Exception as e:
-            print(f"❌ [SIGNAL ERROR] {e}")
+            print(f"[SIGNAL ERROR] {e}")
 
-print("✅ Sygnały zarejestrowane!")
 
-from django.db.models.signals import post_save, pre_delete
-from django.dispatch import receiver
-from django.contrib.contenttypes.models import ContentType
-from .models import Friendship, UserAchievement, Notification, CustomUser, UserProgress
-
-print("📢 Plik signals.py został zaimportowany!")
-
-# === OBSERWOWANIE ===
-@receiver(post_save, sender=Friendship)
-def create_follow_notification(sender, instance, created, **kwargs):
-    print(f"🔔 [SIGNAL] Friendship post_save - created={created}")
-    
-    if created:
-        try:
-            user_content_type = ContentType.objects.get_for_model(CustomUser)
-            
-            Notification.objects.create(
-                recipient=instance.followed,
-                actor=instance.follower,
-                verb="zaczyna Cię obserwować",
-                content_type=user_content_type,
-                object_id=instance.follower.id
-            )
-            
-            print(f"✅ [SIGNAL] Powiadomienie follow utworzone!")
-            
-        except Exception as e:
-            print(f"❌ [SIGNAL ERROR] {e}")
-
-# === ZAPRZESTANIE OBSERWOWANIA (NOWE!) ===
-@receiver(pre_delete, sender=Friendship)
-def create_unfollow_notification(sender, instance, **kwargs):
-    """Powiadomienie gdy ktoś przestaje obserwować"""
-    print(f"🔴 [SIGNAL] Friendship pre_delete")
-    
-    try:
-        user_content_type = ContentType.objects.get_for_model(CustomUser)
-        
-        Notification.objects.create(
-            recipient=instance.followed,
-            actor=instance.follower,
-            verb="przestał Cię obserwować",
-            content_type=user_content_type,
-            object_id=instance.follower.id
-        )
-        
-        print(f"✅ [SIGNAL] Powiadomienie unfollow utworzone!")
-        
-    except Exception as e:
-        print(f"❌ [SIGNAL ERROR] {e}")
-
-@receiver(post_save, sender=UserProgress)
+@receiver(post_save, sender=CustomUser)
 def check_ranking_overtake(sender, instance, created, **kwargs):
-    """Powiadomienie gdy ktoś przebija Cię w TOP 10 rankingu"""
+    """
+    Powiadomienie gdy ktoś przebija Cię w TOP 10 rankingu.
+    Odpala się PO zapisaniu CustomUser.
+    """
     
-    if not (created and instance.counted_for_ranking and instance.ranking_points > 0):
+    update_fields = kwargs.get('update_fields', None)
+
+    if not update_fields or 'total_ranking_points' not in update_fields:
         return
-    
+
+    active_user = instance
+    if created or active_user.total_ranking_points == 0:
+        return
+
+    print(f"SIGNAL] Punkty {active_user.username} zaktualizowane. Sprawdzam TOP 10...")
+
     try:
-        from django.db.models import F, Window
-        from django.db.models.functions import Rank
-        
-        active_user = instance.user
-        
-        # Sprawdź czy jesteśmy w TOP 10
-        top_users = CustomUser.objects.annotate(
+        top_users_qs = CustomUser.objects.annotate(
             rank=Window(
                 expression=Rank(),
                 order_by=F('total_ranking_points').desc()
@@ -146,25 +98,31 @@ def check_ranking_overtake(sender, instance, created, **kwargs):
         ).filter(
             total_ranking_points__gt=0,
             rank__lte=10
-        )
+        ).order_by('rank')
+
+        top_users_map = {user.id: user for user in top_users_qs}
         
-        active_user_in_top = top_users.filter(id=active_user.id).exists()
-        
-        if active_user_in_top:
+        if active_user.id in top_users_map:
             user_content_type = ContentType.objects.get_for_model(CustomUser)
             
-            # Powiadom wszystkich z TOP 10 (oprócz siebie)
-            for other_user in top_users.exclude(id=active_user.id):
+            for other_user_id, other_user in top_users_map.items():
+                if other_user_id == active_user.id:
+                    continue
+                    
                 if active_user.total_ranking_points > other_user.total_ranking_points:
                     Notification.objects.create(
                         recipient=other_user,
                         actor=active_user,
-                        verb=f"wspiął się w TOP 10! ({active_user.total_ranking_points} pkt)",
+                        verb=f"awansował w rankingu TOP 10! ({active_user.total_ranking_points} pkt)",
                         content_type=user_content_type,
                         object_id=active_user.id
                     )
+                    print(f"[SIGNAL] Powiadomiono {other_user.username} o awansie {active_user.username}")
             
-            print(f"🎯 [SIGNAL] {active_user.username} w TOP 10!")
+            print(f"[SIGNAL] {active_user.username} jest w TOP 10!")
         
     except Exception as e:
-        print(f"❌ [SIGNAL ERROR ranking] {e}")
+        print(f"[SIGNAL ERROR ranking] {e}")
+
+
+print("Sygnały zarejestrowane!")

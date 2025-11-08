@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams} from "react-router-dom";
-import AiGeneratorButton from "./AiGeneratorButton.jsx";
+import AiGeneratorButton from "./AiGeneratorButton.jsx"; // Zaimportuj NOWY komponent
 import { jwtDecode } from "jwt-decode";
 
 export default function ExerciseCreator({ api }) {
@@ -40,20 +40,24 @@ export default function ExerciseCreator({ api }) {
         if (isEditMode) {
           const exerciseRes = await api.get(`exercises/${id}/`);
           const data = exerciseRes.data;
-          
+         
           const currentUserId = jwtDecode(token).user_id;
           const isOwner = data.created_by_id === currentUserId;
           if (!isOwner && !statusRes.data.is_admin) {
-             alert("Brak uprawnień do edycji tego ćwiczenia.");
-             navigate("/dashboard");
-             return;
+            alert("Brak uprawnień do edycji tego ćwiczenia.");
+            navigate("/dashboard");
+            return;
           }
 
           setTitle(data.title);
           setText(data.text);
           setIsPublic(data.is_public);
           setIsRanked(data.is_ranked);
-          setQuestions(data.questions || []); 
+          const sanitizedQuestions = (data.questions || []).map(q => ({
+            ...q,
+            question_type: q.question_type || 'open' 
+          }));
+          setQuestions(sanitizedQuestions); 
         }
       } catch (err) {
         console.error("Błąd ładowania danych:", err);
@@ -66,8 +70,8 @@ export default function ExerciseCreator({ api }) {
 
     loadInitialData();
   }, [token, navigate, api, id, isEditMode]); 
-
-  
+ 
+ 
   useEffect(() => {
     const minBank = 15; 
 
@@ -79,13 +83,19 @@ export default function ExerciseCreator({ api }) {
 
     if (isRanked) {
       const hasMinQuestions = questions.length >= minBank;
-      
-      const allQuestionsFilled = questions.every(
-        (q) => q.text.trim() !== "" && q.correct_answer.trim() !== ""
-      );
+     
+      const allQuestionsFilled = questions.every((q) => {
+        if (!q.text.trim() || !q.correct_answer.trim()) return false;
+        if (q.question_type === 'choice') {
+          // Teraz wystarczy, że opcje są wypełnione (i correct_answer)
+          return q.option_1 && q.option_2 && q.option_3 && q.option_4 &&
+                 [q.option_1, q.option_2, q.option_3, q.option_4].includes(q.correct_answer);
+        }
+        return true;
+      });
 
       setIsFormValid(hasMinQuestions && allQuestionsFilled);
-    
+   
     } else {
       setIsFormValid(true);
     }
@@ -95,16 +105,16 @@ export default function ExerciseCreator({ api }) {
 
   const getQuestionBankValidationMessage = () => {
     if (!isRanked) return null;
-    
+   
     const minBank = 15;
     const recommendedBank = 20;
     const currentCount = questions.length;
-    
+   
     if (text.trim().length === 0) return { type: "info", message: "Wpisz tekst ćwiczenia..." };
     if (currentCount === 0) return { type: "error", message: `Brak pytań! Minimum do banku: ${minBank}` };
     if (currentCount < minBank) return { type: "warning", message: `Za mało pytań do banku! Masz ${currentCount}, minimum ${minBank}` };
     if (currentCount >= recommendedBank) return { type: "success", message: `Wystarczająca liczba pytań w banku! (${currentCount})` };
-    
+   
     return { type: "ok", message: `Liczba pytań w banku: ${currentCount}` };
   };
 
@@ -114,8 +124,50 @@ export default function ExerciseCreator({ api }) {
     if (newRankedValue) setIsPublic(true);
   };
 
-  const addQuestion = () => setQuestions([...questions, { text: "", correct_answer: "", question_type: "open" }]);
-  const updateQuestion = (index, field, value) => { const u = [...questions]; u[index][field] = value; setQuestions(u); };
+  const addQuestion = () => setQuestions([...questions, { 
+    text: "", 
+    correct_answer: "", 
+    question_type: "open",
+    option_1: "",
+    option_2: "",
+    option_3: "",
+    option_4: ""
+  }]);
+  
+  // === NOWA, MĄDRZEJSZA FUNKCJA UPDATE ===
+  const updateQuestion = (index, field, value) => { 
+    const u = [...questions]; 
+    const oldQuestion = { ...u[index] };
+    const newQuestion = { ...oldQuestion, [field]: value };
+    
+    // 1. Jeśli zmieniamy typ na otwarty, czyścimy opcje
+    if (field === 'question_type' && value === 'open') {
+        newQuestion.option_1 = "";
+        newQuestion.option_2 = "";
+        newQuestion.option_3 = "";
+        newQuestion.option_4 = "";
+        // Jeśli poprawna odp była jedną z opcji, czyścimy ją
+        if ([oldQuestion.option_1, oldQuestion.option_2, oldQuestion.option_3, oldQuestion.option_4].includes(oldQuestion.correct_answer)) {
+            newQuestion.correct_answer = "";
+        }
+    }
+    
+    // 2. Jeśli zmieniamy tekst opcji, zaktualizuj też correct_answer, jeśli ta opcja była poprawna
+    if (['option_1', 'option_2', 'option_3', 'option_4'].includes(field)) {
+      if (oldQuestion[field] === oldQuestion.correct_answer) {
+        newQuestion.correct_answer = value; // Update correct_answer, aby pasował do nowego tekstu
+      }
+    }
+    
+    // 3. Jeśli klikamy radio button (ustawiamy poprawną odpowiedź)
+    if (field === 'set_correct_answer') {
+        newQuestion.correct_answer = value; // value to będzie tekst z q.option_1, q.option_2 itd.
+    }
+    
+    u[index] = newQuestion;
+    setQuestions(u); 
+  };
+  
   const removeQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
 
   const handleAiQuestionsGenerated = (newQuestions) => {
@@ -130,29 +182,33 @@ export default function ExerciseCreator({ api }) {
   const handleSubmit = async () => {
     if (!api) return alert("Błąd: Brak instancji API.");
     if (!isFormValid) { 
-      alert("Formularz jest niekompletny lub zawiera błędy."); 
+      alert("Formularz jest niekompletny lub zawiera błędy. Sprawdź, czy wszystkie pytania rankingowe mają 4 opcje i zaznaczoną poprawną odpowiedź."); 
       return; 
     }
 
     setIsSubmitting(true);
 
     const cleanedText = text.replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "").replace(/\s+/g, " ").trim();
-    
+   
     const payload = { 
       title, 
       text: cleanedText,
     };
-    
+   
     if (isAdmin) {
       payload.is_public = isPublic;
       payload.is_ranked = isRanked;
     }
-    
+   
     if (isRanked) {
       payload.questions = questions.map(q => ({
-          text: q.text, 
-          correct_answer: q.correct_answer,
-          ...q 
+        text: q.text, 
+        correct_answer: q.correct_answer,
+        question_type: q.question_type,
+        option_1: q.question_type === 'choice' ? q.option_1 : null,
+        option_2: q.question_type === 'choice' ? q.option_2 : null,
+        option_3: q.question_type === 'choice' ? q.option_3 : null,
+        option_4: q.question_type === 'choice' ? q.option_4 : null,
       }));
     }
 
@@ -167,19 +223,18 @@ export default function ExerciseCreator({ api }) {
       navigate("/dashboard");
     } catch (error) {
       console.error("Błąd zapisu ćwiczenia:", error);
-      alert(`Błąd podczas zapisu: ${error.response?.data?.detail || error.message}`);
+      alert(`Błąd podczas zapisu: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Reszta funkcji (searchExercises, addExerciseFromResult) bez zmian...
   const searchExercises = async () => {
     if (!api) return alert("Błąd: Brak instancji API.");
     if (!query.trim()) { alert("Wpisz hasło do wyszukania."); return; }
-
     setSearchLoading(true);
     setResults([]);
-
     try {
       const res = await api.get("exercises/search/", {
         params: { query, num_results: numResults, limit: limit }
@@ -239,7 +294,7 @@ export default function ExerciseCreator({ api }) {
           </button>
         </header>
 
-        {/* Main Form */}
+        {/* Main Form (bez zmian) */}
         <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.1s', marginBottom: '2rem' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -321,13 +376,15 @@ export default function ExerciseCreator({ api }) {
                 </label>
               </div>
 
+              {/* === POCZĄTEK ZMIAN: BANK PYTAŃ === */}
               {isRanked && (
                 <div style={{ marginTop: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Bank Pytań (min. 15)</h4>
-                    
+                   
                     <div style={{display: 'flex', gap: '0.5rem'}}>
-                      
+                     
+                      {/* Nowy przycisk AI z modalem */}
                       <AiGeneratorButton
                         api={api}
                         text={text}
@@ -335,7 +392,7 @@ export default function ExerciseCreator({ api }) {
                         onQuestionsGenerated={handleAiQuestionsGenerated}
                         onError={handleAiError} 
                       />
-                      
+                     
                       <button onClick={addQuestion} className="btn btn-primary btn-sm">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <line x1="12" y1="5" x2="12" y2="19"/>
@@ -385,26 +442,78 @@ export default function ExerciseCreator({ api }) {
                               Usuń
                             </button>
                           </div>
-                          <div className="form-group">
-                            <label className="form-label">Treść pytania</label>
-                            <input
-                              type="text"
-                              placeholder="Wpisz pytanie..."
-                              value={q.text}
-                              onChange={(e) => updateQuestion(index, 'text', e.target.value)}
-                              className="input"
-                            />
+                          
+                          <div className="form-group" style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                            <div style={{flexGrow: 1}}>
+                                <label className="form-label">Treść pytania</label>
+                                <input
+                                type="text"
+                                placeholder="Wpisz pytanie..."
+                                value={q.text || ''}
+                                onChange={(e) => updateQuestion(index, 'text', e.target.value)}
+                                className="input"
+                                />
+                            </div>
+                            <div>
+                                <label className="form-label">Typ Pytania</label>
+                                <select 
+                                    className="input" 
+                                    value={q.question_type || 'open'} 
+                                    onChange={(e) => updateQuestion(index, 'question_type', e.target.value)}
+                                    style={{minWidth: '120px'}}
+                                >
+                                    <option value="open">Otwarte</option>
+                                    <option value="choice">Zamknięte</option>
+                                </select>
+                            </div>
                           </div>
-                          <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">Poprawna odpowiedź</label>
-                            <input
-                              type="text"
-                              placeholder="Wpisz odpowiedź..."
-                              value={q.correct_answer}
-                              onChange={(e) => updateQuestion(index, 'correct_answer', e.target.value)}
-                              className="input"
-                            />
-                          </div>
+                          
+                          {q.question_type === 'choice' ? (
+                            // === NOWY, LEPSZY FORMULARZ ZAMKNIĘTY ===
+                            <div style={{background: 'var(--bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', marginTop: '1rem'}}>
+                                <label className="form-label" style={{marginBottom: '0.75rem', display: 'block'}}>Opcje odpowiedzi (zaznacz poprawną)</label>
+                                <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem'}}>
+                                    
+                                    {['option_1', 'option_2', 'option_3', 'option_4'].map((optionKey) => (
+                                      <div key={optionKey} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <input
+                                          type="radio"
+                                          name={`q-${index}-correct`}
+                                          // Zaznacz, jeśli tekst tej opcji jest poprawną odpowiedzią
+                                          checked={q.correct_answer === q[optionKey] && q[optionKey] !== ""} 
+                                          // Po kliknięciu, ustaw correct_answer na tekst z tego inputa
+                                          onChange={() => updateQuestion(index, 'set_correct_answer', q[optionKey])} 
+                                          style={{ width: '20px', height: '20px', flexShrink: 0, cursor: 'pointer' }}
+                                        />
+                                        <input
+                                          type="text"
+                                          placeholder={`Opcja ${optionKey.split('_')[1]}`}
+                                          value={q[optionKey] || ''}
+                                          // Aktualizuj tekst tej opcji ORAZ correct_answer, jeśli trzeba
+                                          onChange={(e) => updateQuestion(index, optionKey, e.target.value)} 
+                                          className="input"
+                                          style={{margin: 0}}
+                                        />
+                                      </div>
+                                    ))}
+                                
+                                </div>
+                                {/* Pole "correct_answer" jest teraz ukryte i zarządzane przez radio buttony */}
+                            </div>
+                          ) : (
+                            // Formularz OTWARTY (bez zmian)
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Poprawna odpowiedź</label>
+                              <input
+                                type="text"
+                                placeholder="Wpisz odpowiedź..."
+                                value={q.correct_answer || ''}
+                                onChange={(e) => updateQuestion(index, 'correct_answer', e.target.value)}
+                                className="input"
+                              />
+                            </div>
+                          )}
+                           
                         </div>
                       ))}
                     </div>
@@ -422,9 +531,11 @@ export default function ExerciseCreator({ api }) {
                   )}
                 </div>
               )}
+              {/* === KONIEC ZMIAN: BANK PYTAŃ === */}
             </div>
           )}
 
+          {/* Przycisk Submit (bez zmian) */}
           <button 
             onClick={handleSubmit} 
             className="btn btn-primary btn-lg" 
@@ -446,16 +557,17 @@ export default function ExerciseCreator({ api }) {
 
           {!isFormValid && (
              <small style={{ color: 'var(--warning)', textAlign: 'center', display: 'block', marginTop: '0.75rem' }}>
-              {isAdmin && isRanked ? (
-                'Wypełnij tytuł, tekst oraz minimum 15 poprawnie wypełnionych pytań.'
-              ) : (
-                'Wypełnij tytuł i tekst, aby aktywować przycisk.'
-              )}
+             {isAdmin && isRanked ? (
+               'Wypełnij tytuł, tekst oraz minimum 15 pytań. (Pytania zamknięte muszą mieć 4 opcje i zaznaczoną poprawną).'
+             ) : (
+               'Wypełnij tytuł i tekst, aby aktywować przycisk.'
+             )}
              </small>
           )}
 
         </div>
 
+        {/* Wikipedia Search (bez zmian) */}
         <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

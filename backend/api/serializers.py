@@ -40,7 +40,8 @@ class UserStatusSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'is_staff', 'is_superuser', 'is_admin', 
             'current_streak', 'max_streak',
-            'max_wpm_limit'
+            'max_wpm_limit',
+            'has_completed_calibration'
         ]
 
     def get_is_admin(self, obj):
