@@ -24,29 +24,25 @@ export default function MyAchievements() {
   }, [token]);
 
   if (loading) {
-    // Używamy spójnego spinnera
     return (
       <div className="flex justify-center items-center p-8">
-        <div className="spinner"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    // Używamy klas card z globalnego CSS
-    <div className="card card-elevated">
-      <h3 className="text-2xl font-bold mb-6">Twoje Osiągnięcia</h3>
+    <div className="bg-background-elevated shadow-md rounded-lg border border-border p-6">
+      <h3 className="text-2xl font-bold mb-6 text-text-primary">Twoje Osiągnięcia</h3>
       {achievements.length === 0 ? (
         <p className="text-center text-text-secondary py-8">
           Nie masz jeszcze żadnych odznak. Trenuj dalej!
         </p>
       ) : (
-        // Używamy responsywnej siatki Tailwind
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {achievements.map((item) => (
-            <div 
-              key={item.achievement.slug} 
-              // Budujemy kartę odznaki za pomocą Tailwind
+            <div
+              key={item.achievement.slug}
               className="border border-border bg-background-main rounded-lg p-5 flex flex-col items-center text-center shadow-sm"
             >
               <span className="text-5xl mb-3">{item.achievement.icon_name}</span>

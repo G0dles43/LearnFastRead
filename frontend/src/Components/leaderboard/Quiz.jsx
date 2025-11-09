@@ -3,41 +3,9 @@ import { useNavigate } from "react-router-dom";
 import useAntiCheating from "../../hooks/useAntiCheating.js";
 import CheatPopup from "../ui/CheatPopup.jsx";
 
-// === NOWY BLOK STYLÓW ===
-// Możesz to przenieść do CSS, ale tutaj jest dla prostoty.
-const optionStyles = {
-  base: {
-    display: 'block',
-    width: '100%',
-    padding: '1rem 1.5rem',
-    margin: '0.5rem 0',
-    fontSize: '1rem',
-    fontWeight: 500,
-    textAlign: 'left',
-    border: '2px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    background: 'var(--bg-surface)',
-    color: 'var(--text-primary)',
-    cursor: 'pointer',
-    transition: 'var(--transition)',
-  },
-  selected: {
-    background: 'var(--primary-light)',
-    borderColor: 'var(--primary)',
-    color: 'var(--text-primary)',
-    boxShadow: '0 0 10px var(--primary-light)',
-  },
-  hover: { // Dodaj :hover w CSS jeśli przenosisz
-    background: 'var(--bg-elevated)',
-    borderColor: 'var(--primary-light)',
-  }
-};
-// === KONIEC BLOKU STYLÓW ===
-
-
 export default function Quiz({
   api,
-  questions, // Pytania teraz zawierają 'question_type'
+  questions,
   exerciseId,
   readingTimeMs,
   token,
@@ -47,26 +15,25 @@ export default function Quiz({
   const [answers, setAnswers] = useState({});
   const [resultData, setResultData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
- 
+
   const [timeRemaining, setTimeRemaining] = useState(questions.length * 20);
   const [timerExpired, setTimerExpired] = useState(false);
- 
+
   const timerIntervalRef = useRef(null);
   const hasSubmittedRef = useRef(false);
 
   const navigate = useNavigate();
 
-  // === Anti-Cheat (bez zmian) ===
   const [cheatReason, setCheatReason] = useState(null);
   const cheatingInProgress = useRef(false);
 
   const handleCheating = useCallback(async (reason) => {
     if (cheatingInProgress.current || hasSubmittedRef.current) return;
     cheatingInProgress.current = true;
-   
-    stopListenersRef.current(); 
-    clearInterval(timerIntervalRef.current); 
-   
+
+    stopListenersRef.current();
+    clearInterval(timerIntervalRef.current);
+
     if (!api) {
       console.error("Anti-cheat: Brak API");
       setCheatReason(reason);
@@ -77,7 +44,7 @@ export default function Quiz({
       await api.post("submit-progress/", {
         exercise: exerciseId,
         reading_time_ms: readingTimeMs,
-        answers: {}, // Puste odpowiedzi = 0% accuracy
+        answers: {},
       });
     } catch (err) {
       console.error("Błąd zapisu nieudanej próby (anti-cheat quiz):", err);
@@ -87,16 +54,15 @@ export default function Quiz({
   }, [api, exerciseId, readingTimeMs, hasSubmittedRef.current]);
 
   const { stopListeners } = useAntiCheating(
-    handleCheating, 
-    true, 
-    true 
+    handleCheating,
+    true,
+    true
   );
 
-  const stopListenersRef = useRef(() => {});
+  const stopListenersRef = useRef(() => { });
   useEffect(() => {
     stopListenersRef.current = stopListeners;
   }, [stopListeners]);
-  // === KONIEC ANTI-CHEAT ===
 
 
   useEffect(() => {
@@ -122,19 +88,19 @@ export default function Quiz({
 
   const submitQuiz = async (finalAnswers) => {
     if (isSubmitting || hasSubmittedRef.current || cheatingInProgress.current) return;
-   
-    stopListeners(); 
+
+    stopListeners();
     hasSubmittedRef.current = true;
     clearInterval(timerIntervalRef.current);
     setIsSubmitting(true);
-   
+
     try {
       const res = await api.post("submit-progress/", {
         exercise: exerciseId,
         reading_time_ms: readingTimeMs,
         answers: finalAnswers,
       });
-     
+
       setResultData(res.data);
       setTimeout(() => onFinish(), 5000);
     } catch (err) {
@@ -153,13 +119,10 @@ export default function Quiz({
   const handleTimeExpired = () => {
     submitQuiz(answers);
   };
-  
-  // === NOWA FUNKCJA ===
-  // Do ustawiania odpowiedzi (działa dla inputów i przycisków)
+
   const handleAnswerChange = (questionId, value) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
-  // === KONIEC NOWEJ FUNKCJI ===
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -167,102 +130,74 @@ export default function Quiz({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getTimerColor = () => {
+  const getTimerColorClasses = () => {
     const percentage = (timeRemaining / (questions.length * 20)) * 100;
-    if (percentage > 50) return 'var(--success)';
-    if (percentage > 25) return 'var(--warning)';
-    return 'var(--danger)';
+    if (percentage > 50) return 'border-success text-success bg-success/10';
+    if (percentage > 25) return 'border-warning text-warning bg-warning/10';
+    return 'border-danger text-danger bg-danger/10';
   };
+
+  const timerColor = getTimerColorClasses();
 
   return (
     <>
       {cheatReason && (
-        <CheatPopup 
-          reason={cheatReason} 
-          onClose={() => navigate('/dashboard')} 
+        <CheatPopup
+          reason={cheatReason}
+          onClose={() => navigate('/dashboard')}
         />
       )}
 
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem', width: '100%', filter: cheatReason ? 'blur(5px)' : 'none' }}>
-        <div className="card card-elevated" style={{ padding: '2rem' }}>
-         
+      <div className={`mx-auto max-w-3xl p-4 md:p-8 w-full ${cheatReason ? 'blur-sm' : ''}`}>
+        <div className="bg-background-elevated shadow-md rounded-lg border border-border p-8">
+
           {resultData === null && !timerExpired && (
-            <div style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-              marginBottom: '2rem',
-              padding: '1rem 1.5rem',
-              background: `linear-gradient(135deg, ${getTimerColor()}15, ${getTimerColor()}05)`,
-              border: `2px solid ${getTimerColor()}`,
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={getTimerColor()} strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 6v6l4 2"/>
+            <div
+              className={`sticky top-4 z-10 mb-8 p-4 rounded-md border-2 flex items-center justify-between ${timerColor}`}
+            >
+              <div className="flex items-center gap-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
                 </svg>
-                <span style={{ fontWeight: 600 }}>
-                  Pozostały czas: <strong style={{ fontSize: '1.25rem', color: getTimerColor() }}>{formatTime(timeRemaining)}</strong>
+                <span className="font-semibold">
+                  Pozostały czas: <strong className="text-xl">{formatTime(timeRemaining)}</strong>
                 </span>
               </div>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              <span className="text-sm text-text-secondary">
                 {questions.length * 20}s łącznie
               </span>
             </div>
           )}
 
-          <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
+          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">
             Quiz - Sprawdź zrozumienie
           </h2>
-         
+
           {resultData === null ? (
             <>
               {questions.map((q, idx) => (
-                <div key={q.id} className="card" style={{
-                  background: 'var(--bg-surface)',
-                  border: '2px solid var(--border)',
-                  padding: '2rem',
-                  marginBottom: '1.5rem'
-                }}>
-                  <p style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    marginBottom: '0.75rem'
-                  }}>
+                <div key={q.id} className="bg-background-surface border-2 border-border rounded-lg p-8 mb-6">
+                  <p className="text-text-secondary text-sm font-semibold mb-3">
                     Pytanie {idx + 1}/{questions.length}
-                    <span className="badge badge-primary" style={{marginLeft: '10px'}}>
-                        {q.question_type === 'choice' ? 'Zamknięte' : 'Otwarte'}
+                    <span className="ml-2.5 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30">
+                      {q.question_type === 'choice' ? 'Zamknięte' : 'Otwarte'}
                     </span>
                   </p>
-                  <p style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    marginBottom: '1.5rem' // Zwiększony margines
-                  }}>
+                  <p className="text-xl font-semibold mb-6 text-text-primary">
                     {q.text}
                   </p>
-                  
-                  {/* === POCZĄTEK ZMIAN: RENDEROWANIE WARUNKOWE === */}
-                  
+
                   {q.question_type === 'choice' ? (
-                    // Renderuj Pytanie ZAMKNIĘTE (4 opcje)
-                    <div>
+                    <div className="flex flex-col gap-2">
                       {[q.option_1, q.option_2, q.option_3, q.option_4].map((option, optionIdx) => (
                         <button
                           key={optionIdx}
                           onClick={() => handleAnswerChange(q.id, option)}
-                          style={{
-                            ...optionStyles.base,
-                            ...(answers[q.id] === option ? optionStyles.selected : {})
-                          }}
-                          // Efekt hover (opcjonalny, lepszy w CSS)
-                          onMouseOver={e => e.currentTarget.style.background = answers[q.id] === option ? 'var(--primary-light)' : 'var(--bg-elevated)'}
-                          onMouseOut={e => e.currentTarget.style.background = answers[q.id] === option ? 'var(--primary-light)' : 'var(--bg-surface)'}
+                          className={`block w-full p-4 text-left rounded-md border-2 transition-all font-medium ${answers[q.id] === option
+                            ? 'bg-primary/20 border-primary text-text-primary'
+                            : 'bg-background-main border-border text-text-primary hover:bg-background-surface-hover hover:border-primary-light'
+                            }`}
                           disabled={isSubmitting || timerExpired}
                         >
                           {option}
@@ -270,82 +205,69 @@ export default function Quiz({
                       ))}
                     </div>
                   ) : (
-                    // Renderuj Pytanie OTWARTE (input)
                     <input
                       type="text"
-                      className="input"
+                      className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="Twoja odpowiedź..."
                       value={answers[q.id] || ""}
                       onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                       disabled={isSubmitting || timerExpired}
-                     />
+                    />
                   )}
-                  
-                  {/* === KONIEC ZMIAN === */}
-                  
+
                 </div>
               ))}
-              <button 
-                onClick={handleSubmit} 
-                className="btn btn-primary btn-lg"
+              <button
+                onClick={handleSubmit}
+                className="inline-flex items-center justify-center gap-2 w-full px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg disabled:opacity-60"
                 disabled={isSubmitting || timerExpired}
-                style={{ width: '100%' }}
               >
                 {isSubmitting ? 'Zapisywanie...' : 'Sprawdź odpowiedzi'}
               </button>
             </>
           ) : (
-            // Wyniki (bez zmian)
-            <div className="animate-fade-in" style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <div className="animate-fade-in text-center py-8">
               {resultData.ranking_points > 0 ? (
-                <div className="card" style={{
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))',
-                  border: '2px solid var(--success)',
-                  padding: '2rem'
-                }}>
-                  <div style={{ fontSize: '4rem' }}>🏆</div>
-                  <h2 style={{ color: 'var(--success)' }}>
+                <div className="bg-success/10 border-2 border-success rounded-lg p-8">
+                  <div className="text-6xl">🏆</div>
+                  <h2 className="text-3xl font-bold text-success mt-4 mb-2">
                     {resultData.counted_for_ranking ? 'Wynik Rankingowy!' : 'Wynik Zapisany!'}
                   </h2>
                   <p className="text-text-secondary mb-4">{resultData.message}</p>
-                  <div className="badge badge-success" style={{ fontSize: '1.5rem', padding: '1rem' }}>
+                  <div className="inline-flex items-center gap-1.5 px-6 py-3 text-xl font-semibold rounded-full bg-success/15 text-success border border-success/30">
                     Punkty: <strong>{resultData.ranking_points}</strong>
                   </div>
                 </div>
               ) : (
-                <div className="card" style={{
-                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))',
-                  border: '2px solid var(--danger)',
-                  padding: '2rem'
-                }}>
-                  <div style={{ fontSize: '4rem' }}>❌</div>
-                <h2 style={{ color: 'var(--danger)' }}>
+                <div className="bg-danger/10 border-2 border-danger rounded-lg p-8">
+                  <div className="text-6xl">❌</div>
+                  <h2 className="text-3xl font-bold text-danger mt-4 mb-2">
                     {timerExpired ? 'Czas minął!' : 'Poniżej Progu!'}
                   </h2>
                   <p className="text-text-secondary mb-4">
-                  Potrzebujesz min. 60% trafności, aby zdobyć punkty rankingowe.
+                    Potrzebujesz min. 60% trafności, aby zdobyć punkty rankingowe.
                   </p>
-                  <div className="badge badge-danger" style={{ fontSize: '1.5rem', padding: '1rem' }}>
+                  <div className="inline-flex items-center gap-1.5 px-6 py-3 text-xl font-semibold rounded-full bg-danger/15 text-danger border border-danger/30">
                     Punkty: <strong>0</strong>
                   </div>
                 </div>
               )}
-             
+
               <div className="grid grid-cols-2 gap-4 my-6">
-                <div className="card">
+                <div className="bg-background-surface border border-border p-4 rounded-lg">
                   <div className="text-text-secondary mb-2">Twoja Prędkość</div>
-                <div className="text-3xl font-bold">{resultData.wpm} WPM</div>
+                  <div className="text-3xl font-bold text-text-primary">{resultData.wpm} WPM</div>
                 </div>
-                <div className="card">
+                <div className="bg-background-surface border border-border p-4 rounded-lg">
                   <div className="text-text-secondary mb-2">Trafność</div>
-                  <div className="text-3xl font-bold">{resultData.accuracy.toFixed(1)}%</div>
+                  <div className="text-3xl font-bold text-text-primary">{resultData.accuracy.toFixed(1)}%</div>
                 </div>
               </div>
               <p className="text-text-secondary">Powrót do panelu za chwilę...</p>
-        </div>
+            </div>
           )}
         </div>
       </div>
     </>
-  ); 
+  );
 }

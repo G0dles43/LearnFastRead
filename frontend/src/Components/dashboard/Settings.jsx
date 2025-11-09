@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Funkcje pomocnicze (bez zmian)
 const msToWpm = (ms) => {
   if (!ms || ms <= 0) return 300;
   return Math.round(60000 / ms);
@@ -29,8 +28,7 @@ export default function Settings({ api }) {
   const [highlightHeight, setHighlightHeight] = useState(300);
   const [chunkSize, setChunkSize] = useState(3);
 
-  // === ZMIANA 1: Dodajemy stan dla limitu WPM ===
-  const [maxWpmLimit, setMaxWpmLimit] = useState(350); // Domyślna wartość, zaraz ją nadpiszemy
+  const [maxWpmLimit, setMaxWpmLimit] = useState(350);
 
   useEffect(() => {
     if (!token || !api) {
@@ -49,22 +47,17 @@ export default function Settings({ api }) {
         setHighlightWidth(Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, res.data.highlight_width || 600)));
         setHighlightHeight(Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, res.data.highlight_height || 300)));
         setChunkSize(res.data.chunk_size || 3);
-
-        // === ZMIANA 2: Pobieramy limit WPM z API ===
-        // Upewnij się, że UserSettingsSerializer w serializers.py zwraca to pole!
         setMaxWpmLimit(res.data.max_wpm_limit || 350);
-
       })
       .catch((err) => {
         console.error("Błąd pobierania ustawień:", err);
-        // Ustawienia domyślne w razie błędu
         setWpm(300);
         setIsMuted(false);
         setMode('rsvp');
         setHighlightWidth(600);
         setHighlightHeight(300);
         setChunkSize(3);
-        setMaxWpmLimit(350); // Domyślny limit
+        setMaxWpmLimit(350);
       })
       .finally(() => {
         setLoading(false);
@@ -74,13 +67,11 @@ export default function Settings({ api }) {
   const handleSave = () => {
     if (!token || !api) return alert("Nie jesteś zalogowany lub wystąpił błąd!");
 
-    // === ZMIANA 3: Walidacja po stronie frontendu ===
-    // (Chociaż backend też to robi, dobrze jest zatrzymać suwak)
     let wpmToSave = wpm;
     if (wpm > maxWpmLimit) {
       console.warn(`Próba ustawienia ${wpm} WPM przy limicie ${maxWpmLimit}. Resetuję do limitu.`);
-      setWpm(maxWpmLimit); // Zresetuj stan wizualny do max
-      wpmToSave = maxWpmLimit; // Zapisz maksymalną dozwoloną
+      setWpm(maxWpmLimit);
+      wpmToSave = maxWpmLimit;
     }
 
     const speedMsToSend = wpmToMs(wpmToSave);
@@ -102,19 +93,15 @@ export default function Settings({ api }) {
       })
       .catch((err) => {
         console.error("Błąd zapisu ustawień:", err.response);
-        // === ZMIANA 4: Wyświetlanie błędu walidacji z backendu ===
-        // Twoje serializers.py teraz zwracają ładny błąd
         if (err.response?.data?.speed) {
-            alert(`Błąd: ${err.response.data.speed[0]}`);
-            // Jeśli błąd pochodzi z backendu, zresetuj WPM do limitu
-            setWpm(maxWpmLimit);
+          alert(`Błąd: ${err.response.data.speed[0]}`);
+          setWpm(maxWpmLimit);
         } else {
-            alert("Nieznany błąd zapisu ustawień.");
+          alert("Nieznany błąd zapisu ustawień.");
         }
       });
   };
 
-  // Reszta handlerów (bez zmian)
   const handleWidthChange = (e) => {
     const value = parseInt(e.target.value, 10);
     const clampedValue = Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, isNaN(value) ? HIGHLIGHT_WIDTH_MIN : value));
@@ -136,243 +123,160 @@ export default function Settings({ api }) {
   };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="spinner"></div>
+    <div className="min-h-screen bg-background-main text-text-primary flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>
   );
 
   return (
-    <div className="page-wrapper" style={{ 
-      background: 'linear-gradient(135deg, rgba(15, 15, 30, 0.95) 0%, rgba(26, 26, 46, 0.95) 100%), url("/3.png")', 
-      backgroundSize: 'cover', 
-      backgroundPosition: 'center', 
-      backgroundAttachment: 'fixed' 
-    }}>
-      <div className="container" style={{ maxWidth: '900px' }}>
-        {/* Header (bez zmian) */}
+    <div className="min-h-screen text-text-primary p-4 md:p-8 bg-gradient-to-br from-background-main/95 to-background-surface/95 bg-[url('/3.png')] bg-cover bg-center bg-fixed">
+      <div className="mx-auto w-full max-w-[900px]">
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
-            <h1 className="text-gradient mb-2">Ustawienia</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Ustawienia
+            </h1>
+            <p className="text-text-secondary text-lg">
               Dostosuj aplikację do swoich potrzeb
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={() => navigate("/dashboard")}>
+          <button
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
+            onClick={() => navigate("/dashboard")}
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             Powrót
           </button>
         </header>
 
-        {/* Main Settings Card */}
-        <div className="card card-elevated animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          {/* Reading Mode (bez zmian) */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="bg-background-elevated shadow-md rounded-lg border border-border p-6 animate-fade-in [animation-delay:0.1s]">
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
               </svg>
               Tryb czytania
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              {/* Przyciski Trybów (bez zmian) */}
-               <button
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
                 onClick={() => setMode('rsvp')}
-                className="card"
-                style={{
-                  padding: '1.5rem',
-                  cursor: 'pointer',
-                  border: mode === 'rsvp' ? '2px solid var(--primary)' : '2px solid var(--border)',
-                  background: mode === 'rsvp' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                  transition: 'var(--transition)',
-                  textAlign: 'center'
-                }}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
+                  }`}
               >
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  margin: '0 auto 1rem',
-                  borderRadius: 'var(--radius-md)',
-                  background: mode === 'rsvp' ? 'linear-gradient(135deg, var(--primary), var(--primary-light))' : 'var(--bg-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={mode === 'rsvp' ? 'white' : 'currentColor'} strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <path d="M9 9h6v6H9z"/>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'rsvp' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
+                  }`}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'rsvp' ? 'stroke-white' : 'stroke-current'}>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 9h6v6H9z" />
                   </svg>
                 </div>
-                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>RSVP</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Jedno słowo</div>
+                <div className="font-semibold mb-1">RSVP</div>
+                <div className="text-sm text-text-secondary">Jedno słowo</div>
               </button>
 
               <button
                 onClick={() => setMode('highlight')}
-                className="card"
-                style={{
-                  padding: '1.5rem',
-                  cursor: 'pointer',
-                  border: mode === 'highlight' ? '2px solid var(--primary)' : '2px solid var(--border)',
-                  background: mode === 'highlight' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                  transition: 'var(--transition)',
-                  textAlign: 'center'
-                }}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'highlight' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
+                  }`}
               >
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  margin: '0 auto 1rem',
-                  borderRadius: 'var(--radius-md)',
-                  background: mode === 'highlight' ? 'linear-gradient(135deg, var(--primary), var(--primary-light))' : 'var(--bg-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={mode === 'highlight' ? 'white' : 'currentColor'} strokeWidth="2">
-                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'highlight' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
+                  }`}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'highlight' ? 'stroke-white' : 'stroke-current'}>
+                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
                 </div>
-                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Highlight</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Podświetlanie</div>
+                <div className="font-semibold mb-1">Highlight</div>
+                <div className="text-sm text-text-secondary">Podświetlanie</div>
               </button>
 
               <button
                 onClick={() => setMode('chunking')}
-                className="card"
-                style={{
-                  padding: '1.5rem',
-                  cursor: 'pointer',
-                  border: mode === 'chunking' ? '2px solid var(--primary)' : '2px solid var(--border)',
-                  background: mode === 'chunking' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                  transition: 'var(--transition)',
-                  textAlign: 'center'
-                }}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'chunking' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
+                  }`}
               >
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  margin: '0 auto 1rem',
-                  borderRadius: 'var(--radius-md)',
-                  background: mode === 'chunking' ? 'linear-gradient(135deg, var(--primary), var(--primary-light))' : 'var(--bg-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={mode === 'chunking' ? 'white' : 'currentColor'} strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="4" rx="1"/>
-                    <rect x="3" y="10" width="18" height="4" rx="1"/>
-                    <rect x="3" y="16" width="18" height="4" rx="1"/>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'chunking' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
+                  }`}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'chunking' ? 'stroke-white' : 'stroke-current'}>
+                    <rect x="3" y="4" width="18" height="4" rx="1" />
+                    <rect x="3" y="10" width="18" height="4" rx="1" />
+                    <rect x="3" y="16" width="18" height="4" rx="1" />
                   </svg>
                 </div>
-                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Chunking</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Grupy słów</div>
+                <div className="font-semibold mb-1">Chunking</div>
+                <div className="text-sm text-text-secondary">Grupy słów</div>
               </button>
             </div>
           </div>
 
-          <div className="divider" />
+          <div className="h-px bg-border my-8" />
 
-          {/* Speed Settings (ZMIENIONE) */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
               Prędkość czytania
             </h2>
-            
-            <div className="card" style={{ background: 'var(--bg-main)', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <span style={{ fontWeight: 600 }}>Tempo (WPM)</span>
-                <div style={{ 
-                  padding: '0.5rem 1rem', 
-                  background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '1.25rem',
-                  color: 'white',
-                  minWidth: '100px',
-                  textAlign: 'center'
-                }}>
+
+            <div className="bg-background-main rounded-lg border border-border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-semibold">Tempo (WPM)</span>
+                <div className="px-4 py-2 bg-gradient-to-r from-primary to-primary-light rounded-md font-bold text-xl text-white min-w-[100px] text-center">
                   {wpm}
                 </div>
               </div>
 
-              {/* === ZMIANA 5: Suwak ograniczony przez maxWpmLimit === */}
               <input
                 type="range"
                 min="100"
-                max={maxWpmLimit} // Używamy dynamicznego limitu
+                max={maxWpmLimit}
                 step="10"
                 value={wpm}
                 onChange={(e) => setWpm(parseInt(e.target.value))}
+                className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                 style={{
-                  width: '100%',
-                  height: '12px',
-                  borderRadius: '6px',
-                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) 100%)`,
-                  outline: 'none',
-                  appearance: 'none',
-                  cursor: 'pointer'
+                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) 100%)`
                 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.75rem' }}>
+              <div className="flex justify-between text-text-secondary text-sm mt-3">
                 <span>100 WPM</span>
-                <span style={{ color: 'var(--text-muted)' }}>Opóźnienie: {wpmToMs(wpm)}ms / słowo</span>
+                <span className="text-text-muted">Opóźnienie: {wpmToMs(wpm)}ms / słowo</span>
                 <span>{maxWpmLimit} WPM (Twój limit)</span>
               </div>
             </div>
 
-            {/* === ZMIANA 6: Informacja o odblokowaniu === */}
-            <div className="card" style={{
-              background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              padding: '1rem',
-              marginTop: '1.5rem',
-              textAlign: 'center',
-              fontSize: '0.9rem'
-            }}>
-              <strong style={{ color: 'var(--primary-light)', display: 'block', marginBottom: '0.5rem' }}>
+            <div className="bg-primary/10 border border-primary/30 p-4 mt-6 text-center text-sm rounded-lg">
+              <strong className="text-primary-light font-semibold block mb-2">
                 Twój obecny limit prędkości to {maxWpmLimit} WPM.
               </strong>
-              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              <p className="text-text-secondary m-0">
                 Aby odblokować wyższy limit, ukończ ćwiczenie rankingowe
                 z prędkością {maxWpmLimit} WPM (lub wyższą) i trafnością {'>'}60%.
               </p>
             </div>
-            
+
           </div>
 
-          {/* Chunking Settings (bez zmian) */}
           {mode === "chunking" && (
             <>
-              <div className="divider" />
-              <div style={{ marginBottom: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="h-px bg-border my-8" />
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="4" rx="1"/>
-                    <rect x="3" y="10" width="18" height="4" rx="1"/>
-                    <rect x="3" y="16" width="18" height="4" rx="1"/>
+                    <rect x="3" y="4" width="18" height="4" rx="1" />
+                    <rect x="3" y="10" width="18" height="4" rx="1" />
+                    <rect x="3" y="16" width="18" height="4" rx="1" />
                   </svg>
                   Ustawienia Chunking
                 </h2>
-                
-                <div className="card" style={{ background: 'var(--bg-main)', padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <span style={{ fontWeight: 600 }}>Rozmiar chunka</span>
-                    <div style={{ 
-                      padding: '0.5rem 1rem', 
-                      background: 'linear-gradient(135deg, var(--secondary), #a78bfa)',
-                      borderRadius: 'var(--radius-md)',
-                      fontWeight: 700,
-                      fontSize: '1.25rem',
-                      color: 'white',
-                      minWidth: '80px',
-                      textAlign: 'center'
-                    }}>
+
+                <div className="bg-background-main rounded-lg border border-border p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-semibold">Rozmiar chunka</span>
+                    <div className="px-4 py-2 bg-gradient-to-r from-secondary to-purple-400 rounded-md font-bold text-xl text-white min-w-[80px] text-center">
                       {chunkSize}
                     </div>
                   </div>
@@ -384,49 +288,37 @@ export default function Settings({ api }) {
                     step="1"
                     value={chunkSize}
                     onChange={(e) => setChunkSize(parseInt(e.target.value))}
+                    className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                     style={{
-                      width: '100%',
-                      height: '12px',
-                      borderRadius: '6px',
-                      background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${((chunkSize - 2) / 3) * 100}%, var(--border) ${((chunkSize - 2) / 3) * 100}%, var(--border) 100%)`,
-                      outline: 'none',
-                      appearance: 'none',
-                      cursor: 'pointer'
+                      background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${((chunkSize - 2) / 3) * 100}%, var(--border) ${((chunkSize - 2) / 3) * 100}%, var(--border) 100%)`
                     }}
                   />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem' }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>2 słowa</span>
-                    <span className="badge badge-primary" style={{ fontSize: '0.85rem' }}>{getChunkHint()}</span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>5 słów</span>
+                  <div className="flex justify-between items-center mt-3">
+                    <span className="text-text-secondary text-sm">2 słowa</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30 text-sm">{getChunkHint()}</span>
+                    <span className="text-text-secondary text-sm">5 słów</span>
                   </div>
                 </div>
               </div>
             </>
           )}
 
-          {/* Highlight Settings (bez zmian) */}
           {mode === "highlight" && (
             <>
-              <div className="divider" />
-              <div style={{ marginBottom: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="h-px bg-border my-8" />
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
                   </svg>
                   Ustawienia Highlight
                 </h2>
-                
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  <div className="card" style={{ background: 'var(--bg-main)', padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <span style={{ fontWeight: 600 }}>Szerokość okna</span>
-                      <div style={{ 
-                        padding: '0.5rem 1rem', 
-                        background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
-                        borderRadius: 'var(--radius-md)',
-                        fontWeight: 700,
-                        color: 'white'
-                      }}>
+
+                <div className="grid gap-6">
+                  <div className="bg-background-main rounded-lg border border-border p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="font-semibold">Szerokość okna</span>
+                      <div className="px-4 py-2 bg-gradient-to-r from-primary to-primary-light rounded-md font-bold text-white">
                         {highlightWidth}px
                       </div>
                     </div>
@@ -438,32 +330,21 @@ export default function Settings({ api }) {
                       step="50"
                       value={highlightWidth}
                       onChange={(e) => setHighlightWidth(parseInt(e.target.value))}
+                      className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                       style={{
-                        width: '100%',
-                        height: '12px',
-                        borderRadius: '6px',
-                        background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((highlightWidth - HIGHLIGHT_WIDTH_MIN) / (HIGHLIGHT_WIDTH_MAX - HIGHLIGHT_WIDTH_MIN)) * 100}%, var(--border) ${((highlightWidth - HIGHLIGHT_WIDTH_MIN) / (HIGHLIGHT_WIDTH_MAX - HIGHLIGHT_WIDTH_MIN)) * 100}%, var(--border) 100%)`,
-                        outline: 'none',
-                        appearance: 'none',
-                        cursor: 'pointer'
+                        background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((highlightWidth - HIGHLIGHT_WIDTH_MIN) / (HIGHLIGHT_WIDTH_MAX - HIGHLIGHT_WIDTH_MIN)) * 100}%, var(--border) ${((highlightWidth - HIGHLIGHT_WIDTH_MIN) / (HIGHLIGHT_WIDTH_MAX - HIGHLIGHT_WIDTH_MIN)) * 100}%, var(--border) 100%)`
                       }}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.75rem' }}>
+                    <div className="flex justify-between text-text-secondary text-sm mt-3">
                       <span>{HIGHLIGHT_WIDTH_MIN}px</span>
                       <span>{HIGHLIGHT_WIDTH_MAX}px</span>
                     </div>
                   </div>
 
-                  <div className="card" style={{ background: 'var(--bg-main)', padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <span style={{ fontWeight: 600 }}>Wysokość okna</span>
-                      <div style={{ 
-                        padding: '0.5rem 1rem', 
-                        background: 'linear-gradient(135deg, var(--secondary), #a78bfa)',
-                        borderRadius: 'var(--radius-md)',
-                        fontWeight: 700,
-                        color: 'white'
-                      }}>
+                  <div className="bg-background-main rounded-lg border border-border p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="font-semibold">Wysokość okna</span>
+                      <div className="px-4 py-2 bg-gradient-to-r from-secondary to-purple-400 rounded-md font-bold text-white">
                         {highlightHeight}px
                       </div>
                     </div>
@@ -475,17 +356,12 @@ export default function Settings({ api }) {
                       step="50"
                       value={highlightHeight}
                       onChange={(e) => setHighlightHeight(parseInt(e.target.value))}
+                      className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                       style={{
-                        width: '100%',
-                        height: '12px',
-                        borderRadius: '6px',
-                        background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${((highlightHeight - HIGHLIGHT_HEIGHT_MIN) / (HIGHLIGHT_HEIGHT_MAX - HIGHLIGHT_HEIGHT_MIN)) * 100}%, var(--border) ${((highlightHeight - HIGHLIGHT_HEIGHT_MIN) / (HIGHLIGHT_HEIGHT_MAX - HIGHLIGHT_HEIGHT_MIN)) * 100}%, var(--border) 100%)`,
-                        outline: 'none',
-                        appearance: 'none',
-                        cursor: 'pointer'
+                        background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${((highlightHeight - HIGHLIGHT_HEIGHT_MIN) / (HIGHLIGHT_HEIGHT_MAX - HIGHLIGHT_HEIGHT_MIN)) * 100}%, var(--border) ${((highlightHeight - HIGHLIGHT_HEIGHT_MIN) / (HIGHLIGHT_HEIGHT_MAX - HIGHLIGHT_HEIGHT_MIN)) * 100}%, var(--border) 100%)`
                       }}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.75rem' }}>
+                    <div className="flex justify-between text-text-secondary text-sm mt-3">
                       <span>{HIGHLIGHT_HEIGHT_MIN}px</span>
                       <span>{HIGHLIGHT_HEIGHT_MAX}px</span>
                     </div>
@@ -495,7 +371,7 @@ export default function Settings({ api }) {
             </>
           )}
 
-          <div className="divider" />
+          <div className="h-px bg-border my-8" />
 
           <div style={{ marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -536,10 +412,13 @@ export default function Settings({ api }) {
             </label>
           </div>
 
-          <button onClick={handleSave} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center justify-center gap-2 w-full px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-              <path d="M17 21v-8H7v8M7 3v5h8"/>
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <path d="M17 21v-8H7v8M7 3v5h8" />
             </svg>
             Zapisz ustawienia
           </button>

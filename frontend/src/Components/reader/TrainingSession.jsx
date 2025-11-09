@@ -1,4 +1,3 @@
-// src/Components/TrainingSession.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
@@ -86,7 +85,6 @@ export default function TrainingSession({ api }) {
   useEffect(() => {
     stopListenersRef.current = stopListeners;
   }, [stopListeners]);
-  // === KONIEC KODU ANTI-CHEAT ===
 
   useEffect(() => {
       if (!token || !api) return;    

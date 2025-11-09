@@ -6,10 +6,10 @@ export default function CollectionList({ collections, loading }) {
   if (loading) {
     return (
       <div className="mb-12">
-        <div className="h-8 w-1/3 bg-[var(--bg-surface)] rounded mb-4 animate-pulse"></div>
+        <div className="h-8 w-1/3 bg-background-surface rounded mb-4 animate-pulse"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="card h-40 bg-[var(--bg-surface)] animate-pulse"></div>
+            <div key={i} className="h-40 bg-background-surface rounded-md animate-pulse"></div>
           ))}
         </div>
       </div>
@@ -17,26 +17,26 @@ export default function CollectionList({ collections, loading }) {
   }
 
   if (collections.length === 0) {
-    return null; 
+    return null;
   }
 
   return (
-    <div className="mb-12 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+    <div className="mb-12 animate-fade-in [animation-delay:0.4s]">
       <h2 className="text-3xl font-bold mb-6">Polecane Kolekcje</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {collections.map(collection => (
-          <Link 
-            to={`/collections/${collection.slug}`} 
+          <Link
+            to={`/collections/${collection.slug}`}
             key={collection.id}
-            className="card card-elevated p-6 flex items-start gap-5 
+            className="block bg-background-surface rounded-md shadow-md p-6 flex items-start gap-5 
                        border-2 border-transparent hover:border-primary 
                        transition-all cursor-pointer group"
           >
             <div className="text-5xl mt-1 opacity-80 group-hover:opacity-100 transition-opacity">
               {collection.icon_name}
             </div>
-            
+
             <div>
               <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
                 {collection.title}
@@ -44,7 +44,7 @@ export default function CollectionList({ collections, loading }) {
               <p className="text-text-secondary text-sm mb-4 line-clamp-2">
                 {collection.description || "Brak opisu"}
               </p>
-              
+
               <div className="flex items-center gap-4 text-sm text-text-secondary">
                 <span className="flex items-center gap-1.5">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -55,8 +55,8 @@ export default function CollectionList({ collections, loading }) {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
                   </svg>
                   ~{Math.round(collection.total_words / 250)} min
                 </span>

@@ -3,242 +3,136 @@ import { Link } from "react-router-dom";
 
 export default function Home() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, rgba(15, 15, 30, 0.97) 0%, rgba(26, 26, 46, 0.97) 100%), url("/3.png")',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed'
-    }}>
+    <div className="min-h-screen bg-gradient-to-br from-background-main/95 to-background-surface/95 bg-[url('/3.png')] bg-cover bg-center bg-fixed text-text-primary">
+      
       {/* Hero Section */}
-      <div style={{ 
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
+      <div className="min-h-screen flex items-center relative overflow-hidden">
         {/* Animated background elements */}
-        <div style={{
-          position: 'absolute',
-          top: '20%',
-          right: '10%',
-          width: '400px',
-          height: '400px',
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%)',
-          borderRadius: '50%',
-          animation: 'float 6s ease-in-out infinite',
-          pointerEvents: 'none'
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '10%',
-          left: '5%',
-          width: '300px',
-          height: '300px',
-          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
-          borderRadius: '50%',
-          animation: 'float 8s ease-in-out infinite reverse',
-          pointerEvents: 'none'
-        }} />
+        <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] bg-[radial-gradient(circle,theme(colors.primary.DEFAULT)_/_0.15)_0%,transparent_70%)] rounded-full animate-float pointer-events-none" style={{ animationDuration: '6s' }} />
+        <div className="absolute bottom-[10%] left-[5%] w-[300px] h-[300px] bg-[radial-gradient(circle,theme(colors.secondary)_/_0.15)_0%,transparent_70%)] rounded-full animate-float pointer-events-none" style={{ animationDuration: '8s', animationDirection: 'reverse' }} />
 
-        <div className="container">
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-            gap: '4rem',
-            alignItems: 'center'
-          }}>
+        <div className="mx-auto w-full max-w-[1400px] px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            
             {/* Left Content */}
             <div className="animate-fade-in">
-              <div style={{ marginBottom: '2rem' }}>
-                <div className="badge badge-primary" style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+              <div className="mb-8">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30 mb-6">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                   </svg>
-                  #1 Aplikacja do szybkiego czytania
+                  #1 Aplikacja do nauki szybkiego czytania
                 </div>
-                <h1 style={{ 
-                  fontSize: '4rem', 
-                  fontWeight: 800, 
-                  lineHeight: 1.1,
-                  marginBottom: '1.5rem',
-                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}>
+                <h1 className="text-5xl lg:text-7xl font-extrabold leading-tight mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                   Fast Reader
                 </h1>
-                <p style={{ 
-                  fontSize: '1.5rem', 
-                  color: 'var(--text-secondary)',
-                  marginBottom: '2.5rem',
-                  lineHeight: 1.6
-                }}>
+                <p className="text-2xl text-text-secondary mb-10 leading-relaxed">
                   Czytaj 3x szybciej z pełnym zrozumieniem. Rozwijaj swoje umiejętności i rywalizuj z innymi.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '3rem' }}>
-                <Link to="/register" className="btn btn-primary btn-lg" style={{ fontSize: '1.1rem', padding: '1rem 2.5rem' }}>
+              <div className="flex gap-4 mb-12">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center justify-center gap-2 px-10 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
+                >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="8.5" cy="7" r="4"/>
-                    <line x1="20" y1="8" x2="20" y2="14"/>
-                    <line x1="23" y1="11" x2="17" y2="11"/>
+                    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                    <circle cx="8.5" cy="7" r="4" />
+                    <line x1="20" y1="8" x2="20" y2="14" />
+                    <line x1="23" y1="11" x2="17" y2="11" />
                   </svg>
                   Zacznij za darmo
                 </Link>
-                <Link to="/login" className="btn btn-outline btn-lg" style={{ fontSize: '1.1rem', padding: '1rem 2.5rem' }}>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center px-10 py-4 rounded-md font-semibold transition-all bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-white text-lg"
+                >
                   Zaloguj się
                 </Link>
               </div>
 
-              {/* Stats */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(3, 1fr)', 
-                gap: '1.5rem',
-                padding: '2rem',
-                background: 'var(--bg-surface)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--primary)' }}>
-                    ~450
+              <div className="grid grid-cols-3 gap-6 p-8 bg-background-surface rounded-lg border border-border">
+                <div className="text-center">
+                  <div className="text-2xl lg:text-3xl font-bold mb-1 text-primary">
+                    3 Tryby
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    Średnie WPM
+                  <div className="text-sm text-text-secondary">
+                    RSVP, Highlight, Chunking
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--secondary)' }}>
-                    +120%
+                <div className="text-center border-l border-r border-border px-4">
+                  <div className="text-2xl lg:text-3xl font-bold mb-1 text-secondary">
+                    Gamifikacja
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    Wzrost prędkości
+                  <div className="text-sm text-text-secondary">
+                    Ranking, Punkty i Odznaki
                   </div>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--warning)' }}>
-                    2-3x
+                <div className="text-center">
+                  <div className="text-2xl lg:text-3xl font-bold mb-1 text-warning">
+                    Społeczność
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    Szybciej
+                  <div className="text-sm text-text-secondary">
+                    Rywalizuj ze znajomymi
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Right Content - Feature Cards */}
-            <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div className="card card-elevated" style={{ 
-                  padding: '2rem',
-                  border: '2px solid transparent',
-                  transition: 'var(--transition)',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-                >
-                  <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      flexShrink: 0,
-                      borderRadius: 'var(--radius-lg)',
-                      background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-                    }}>
+            <div className="animate-fade-in [animation-delay:0.2s]">
+              <div className="flex flex-col gap-6">
+                <div className="bg-background-elevated shadow-md rounded-lg p-8 border-2 border-transparent transition-all hover:border-primary cursor-pointer">
+                  <div className="flex gap-6">
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/30">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                        Technika RSVP
+                      <h3 className="text-2xl font-bold mb-3 text-text-primary">
+                        Wiele Trybów Czytania
                       </h3>
-                      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                        Rapid Serial Visual Presentation - prezentacja słów w stałym tempie eliminuje regresję wzroku
+                      <p className="text-text-secondary leading-relaxed">
+                        Wybierz swój styl: klasyczne RSVP, dynamiczne podświetlanie (Highlight) lub czytanie grupami (Chunking).
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="card card-elevated" style={{ 
-                  padding: '2rem',
-                  border: '2px solid transparent',
-                  transition: 'var(--transition)',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--secondary)'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-                >
-                  <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      flexShrink: 0,
-                      borderRadius: 'var(--radius-lg)',
-                      background: 'linear-gradient(135deg, var(--secondary), #a78bfa)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                    }}>
+                <div className="bg-background-elevated shadow-md rounded-lg p-8 border-2 border-transparent transition-all hover:border-secondary cursor-pointer">
+                  <div className="flex gap-6">
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-secondary to-purple-400 flex items-center justify-center flex-shrink-0 shadow-lg shadow-secondary/30">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                        <path d="M3 3v18h18"/>
-                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+                        <path d="M3 3v18h18" />
+                        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
                       </svg>
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                        Śledź postępy
+                      <h3 className="text-2xl font-bold mb-3 text-text-primary">
+                        Śledź Postępy i Zrozumienie
                       </h3>
-                      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                        Szczegółowe statystyki WPM, trafności i wykres rozwoju w czasie rzeczywistym
+                      <p className="text-text-secondary leading-relaxed">
+                        Szczegółowe statystyki WPM i trafności. Quizy po czytaniu i generator pytań AI sprawdzają, ile pamiętasz.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="card card-elevated" style={{ 
-                  padding: '2rem',
-                  border: '2px solid transparent',
-                  transition: 'var(--transition)',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--warning)'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-                >
-                  <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      flexShrink: 0,
-                      borderRadius: 'var(--radius-lg)',
-                      background: 'linear-gradient(135deg, var(--warning), #fbbf24)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
-                    }}>
+                <div className="bg-background-elevated shadow-md rounded-lg p-8 border-2 border-transparent transition-all hover:border-warning cursor-pointer">
+                  <div className="flex gap-6">
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-warning to-yellow-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-warning/30">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                        System rankingowy
+                      <h3 className="text-2xl font-bold mb-3 text-text-primary">
+                        Rywalizuj i Zdobywaj
                       </h3>
-                      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                        Zdobywaj punkty, odznaki i rywalizuj z innymi użytkownikami na globalnej tablicy
+                      <p className="text-text-secondary leading-relaxed">
+                        Zdobywaj punkty za ćwiczenia rankingowe, odblokowuj osiągnięcia i pnij się w globalnym rankingu.
                       </p>
                     </div>
                   </div>
@@ -250,33 +144,18 @@ export default function Home() {
       </div>
 
       {/* Features Section */}
-      <div style={{ 
-        padding: '8rem 0',
-        background: 'linear-gradient(180deg, transparent 0%, var(--bg-surface) 50%, transparent 100%)'
-      }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
-            <h2 style={{ 
-              fontSize: '3rem', 
-              fontWeight: 700, 
-              marginBottom: '1rem',
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>
+      <div className="py-32 bg-gradient-to-b from-transparent via-background-surface to-transparent">
+        <div className="mx-auto w-full max-w-[1400px] px-6">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Wszystko czego potrzebujesz
             </h2>
-            <p style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>
+            <p className="text-xl text-text-secondary">
               Kompleksowa platforma do nauki szybkiego czytania
             </p>
           </div>
 
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '2rem'
-          }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { icon: '📚', title: 'Własne teksty', desc: 'Import z Wikipedii lub dodaj własne materiały' },
               { icon: '🎯', title: 'Trzy tryby czytania', desc: 'RSVP, Highlight i Chunking - wybierz najlepszy dla siebie' },
@@ -285,26 +164,18 @@ export default function Home() {
               { icon: '🏅', title: 'Osiągnięcia', desc: 'Zdobywaj odznaki za ukończone cele' },
               { icon: '🌍', title: 'Ranking globalny', desc: 'Porównuj się z użytkownikami z całego świata' }
             ].map((feature, idx) => (
-              <div 
+              <div
                 key={idx}
-                className="card card-elevated animate-fade-in"
-                style={{ 
-                  padding: '2rem',
-                  textAlign: 'center',
-                  animationDelay: `${idx * 0.1}s`,
-                  border: '2px solid transparent',
-                  transition: 'var(--transition)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                className="bg-background-elevated shadow-md rounded-lg p-8 text-center border-2 border-transparent transition-all hover:border-primary animate-fade-in"
+                style={{ animationDelay: `${idx * 0.1}s` }}
               >
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+                <div className="text-5xl mb-4">
                   {feature.icon}
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+                <h3 className="text-xl font-bold mb-3 text-text-primary">
                   {feature.title}
                 </h3>
-                <p style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-text-secondary">
                   {feature.desc}
                 </p>
               </div>
@@ -314,74 +185,32 @@ export default function Home() {
       </div>
 
       {/* CTA Section */}
-      <div style={{ padding: '6rem 0' }}>
-        <div className="container">
-          <div className="card card-elevated" style={{
-            padding: '4rem',
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.05))',
-            border: '2px solid rgba(99, 102, 241, 0.3)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: '-50px',
-              right: '-50px',
-              width: '200px',
-              height: '200px',
-              background: 'radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%)',
-              borderRadius: '50%'
-            }} />
+      <div className="py-24">
+        <div className="mx-auto w-full max-w-[1400px] px-6">
+          <div className="bg-background-elevated shadow-xl rounded-lg p-16 text-center bg-gradient-to-br from-primary/15 to-secondary/[.05] border-2 border-primary/30 relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-[radial-gradient(circle,theme(colors.primary.DEFAULT)_/_0.2)_0%,transparent_70%)] rounded-full" />
             
-            <h2 style={{ 
-              fontSize: '2.5rem', 
-              fontWeight: 700, 
-              marginBottom: '1rem',
-              position: 'relative',
-              zIndex: 1
-            }}>
+            <h2 className="text-5xl font-bold mb-4 relative z-10 text-text-primary">
               Gotowy na rozwój?
             </h2>
-            <p style={{ 
-              fontSize: '1.25rem', 
-              color: 'var(--text-secondary)',
-              marginBottom: '2rem',
-              position: 'relative',
-              zIndex: 1
-            }}>
+            <p className="text-xl text-text-secondary mb-8 relative z-10">
               Dołącz do nowych użytkowników już dziś
             </p>
-            <Link 
-              to="/register" 
-              className="btn btn-primary btn-lg"
-              style={{ 
-                fontSize: '1.1rem', 
-                padding: '1rem 3rem',
-                position: 'relative',
-                zIndex: 1
-              }}
+            <Link
+              to="/register"
+              className="inline-flex items-center justify-center gap-2 px-12 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg relative z-10"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="8.5" cy="7" r="4"/>
-                <line x1="20" y1="8" x2="20" y2="14"/>
-                <line x1="23" y1="11" x2="17" y2="11"/>
+                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <line x1="20" y1="8" x2="20" y2="14" />
+                <line x1="23" y1="11" x2="17" y2="11" />
               </svg>
               Rozpocznij teraz - 100% darmowe
             </Link>
           </div>
         </div>
       </div>
-
-      <style>
-        {`
-          @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-          }
-        `}
-      </style>
     </div>
   );
 }

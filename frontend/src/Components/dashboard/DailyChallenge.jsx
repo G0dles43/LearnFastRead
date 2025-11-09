@@ -7,7 +7,7 @@ export default function DailyChallenge() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const navigate = useNavigate();
   const token = localStorage.getItem("access");
 
@@ -35,146 +35,116 @@ export default function DailyChallenge() {
 
   if (loading) {
     return (
-      <div className="card card-gradient animate-pulse" style={{ padding: '2rem' }}>
-        <div style={{ height: '2rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', width: '40%', marginBottom: '1rem' }}></div>
-        <div style={{ height: '1.5rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', width: '70%' }}></div>
+      <div className="p-8 rounded-lg shadow-md bg-gradient-to-r from-background-surface to-background-elevated animate-pulse">
+        <div className="h-8 bg-background-main rounded-md w-2/5 mb-4"></div>
+        <div className="h-6 bg-background-main rounded-md w-3/4"></div>
       </div>
     );
   }
-  
+
   if (!challenge) {
-    return null; 
+    return null;
   }
 
   return (
-    <div 
-      className="card card-elevated"
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        border: isCompleted ? '2px solid var(--success)' : '2px solid var(--border-light)',
-        background: isCompleted 
-          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05)), url("/3.png")' 
-          : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.05)), url("/3.png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backdropFilter: 'blur(10px)'
-      }}
+    <div
+      className={`relative overflow-hidden rounded-lg shadow-md border-2 bg-[url('/3.png')] bg-cover bg-center ${isCompleted ? 'border-success' : 'border-border-light'
+        }`}
     >
-      {/* Gradient overlay */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '300px',
-        height: '300px',
-        background: isCompleted 
-          ? 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)'
-          : 'radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%)',
-        pointerEvents: 'none'
-      }} />
+      <div
+        className={`absolute inset-0 backdrop-blur-sm ${isCompleted
+          ? 'bg-gradient-to-r from-success/15 to-success/[.05]'
+          : 'bg-gradient-to-r from-primary/15 to-secondary/[.05]'
+          }`}
+      ></div>
+      <div
+        className={`absolute top-0 right-0 w-[300px] h-[300px] pointer-events-none ${isCompleted
+          ? 'bg-[radial-gradient(circle,rgba(16,185,129,0.15)_0%,transparent_70%)]'
+          : 'bg-[radial-gradient(circle,rgba(99,102,241,0.15)_0%,transparent_70%)]'
+          }`}
+      ></div>
 
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: 'var(--radius-lg)',
-              background: isCompleted 
-                ? 'linear-gradient(135deg, var(--success), #059669)' 
-                : 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.75rem',
-              boxShadow: isCompleted ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 4px 12px rgba(99, 102, 241, 0.3)'
-            }}>
+      <div className="relative z-10 p-6">
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div
+              className={`w-14 h-14 rounded-lg flex items-center justify-center text-3xl text-white
+                ${isCompleted
+                  ? 'bg-gradient-to-r from-success to-green-600 shadow-lg shadow-success/30'
+                  : 'bg-gradient-to-r from-primary to-secondary shadow-lg shadow-primary/30'
+                }`}
+            >
               {isCompleted ? '✓' : (
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
               )}
             </div>
             <div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+              <h3 className="text-2xl font-bold mb-1">
                 {isCompleted ? 'Wyzwanie ukończone!' : 'Dzienne wyzwanie'}
               </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              <p className="text-text-secondary text-base">
                 {isCompleted ? 'Świetna robota! Wróć jutro' : 'Ukończ i zdobądź punkty'}
               </p>
             </div>
           </div>
-          
+
           {isCompleted && (
-            <div className="badge badge-success" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+            <div className="inline-flex items-center gap-1 px-4 py-2 font-semibold rounded-full bg-success/15 text-success border border-success/30 text-base">
               +50 pkt
             </div>
           )}
         </div>
 
-        <div 
-          className="card"
-          style={{ 
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            padding: '1.5rem'
-          }}
+        <div
+          className="bg-background-surface border border-border p-6 rounded-lg"
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '2rem' }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem' }}>
+          <div className="flex items-start justify-between gap-8">
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold mb-4">
                 {challenge.title}
               </h2>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+              <div className="flex items-center flex-wrap gap-x-6 gap-y-2 text-text-secondary text-sm mb-6">
+                <span className="flex items-center gap-2">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                    <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
                   </svg>
-                  <span style={{ fontWeight: 500 }}>{challenge.word_count} słów</span>
+                  <span className="font-medium">{challenge.word_count} słów</span>
                 </span>
-                
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+                <span className="flex items-center gap-2">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
                   </svg>
-                  <span style={{ fontWeight: 500 }}>~{Math.ceil(challenge.word_count / 250)} min</span>
+                  <span className="font-medium">~{Math.ceil(challenge.word_count / 250)} min</span>
                 </span>
 
                 {challenge.is_ranked && (
-                  <span className="badge badge-warning">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-warning/15 text-warning border border-warning/30">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                     </svg>
                     Ranking
                   </span>
                 )}
               </div>
-              
+
               {!isCompleted ? (
-                <button 
-                  className="btn btn-primary btn-lg"
+                <button
+                  className="inline-flex items-center justify-center gap-2 w-full px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
                   onClick={() => navigate(`/training/${challenge.id}`)}
-                  style={{ width: '100%' }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
+                    <path d="M8 5v14l11-7z" />
                   </svg>
                   Rozpocznij wyzwanie
                 </button>
               ) : (
-                <div style={{ 
-                  padding: '1rem',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--success)',
-                  fontWeight: 600,
-                  textAlign: 'center'
-                }}>
+                <div className="p-4 bg-success/10 border border-success/30 rounded-md text-success font-semibold text-center">
                   Ukończono - nowe wyzwanie pojawi się jutro
                 </div>
               )}

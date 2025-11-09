@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import RSVPReader from "../reader/RSVPReader.jsx";
-import { getDynamicDelay } from "../../utils/readingUtils.js"; 
+import { getDynamicDelay } from "../../utils/readingUtils.js";
 
 const msToWpm = (ms) => Math.round(60000 / ms);
 const wpmToMs = (wpm) => Math.round(60000 / wpm);
@@ -30,19 +30,19 @@ export default function CalibrationSession() {
     axios.get(`http://127.0.0.1:8000/api/exercises/${CALIBRATION_TEXT_ID}/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    .then(res => {
-     const cleanText = res.data.text
-        .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-      setWords(cleanText.split(/\s+/));
-      setIsLoading(false);
-    })
-    .catch(err => {
-      console.error("Błąd ładowania tekstu kalibracyjnego:", err);
-      alert("Nie można załadować tekstu kalibracyjnego. Upewnij się, że ćwiczenie o ID=" + CALIBRATION_TEXT_ID + " istnieje.");
-      navigate('/dashboard');
-    });
+      .then(res => {
+        const cleanText = res.data.text
+          .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        setWords(cleanText.split(/\s+/));
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Błąd ładowania tekstu kalibracyjnego:", err);
+        alert("Nie można załadować tekstu kalibracyjnego. Upewnij się, że ćwiczenie o ID=" + CALIBRATION_TEXT_ID + " istnieje.");
+        navigate('/dashboard');
+      });
   }, [token, navigate]);
 
   useEffect(() => {
@@ -62,7 +62,8 @@ export default function CalibrationSession() {
 
         const dynamicDelay = getDynamicDelay(currentWord, speedMsRef.current);
 
-        timerRef.current = setTimeout(step, dynamicDelay);        return nextIndex;
+        timerRef.current = setTimeout(step, dynamicDelay);
+        return nextIndex;
       });
     };
 
@@ -76,14 +77,14 @@ export default function CalibrationSession() {
   const changeSpeed = useCallback((deltaWpm) => {
     setCurrentWpm(prevWpm => {
       const newWpm = Math.max(50, Math.min(1500, prevWpm + deltaWpm));
-      speedMsRef.current = wpmToMs(newWpm); 
+      speedMsRef.current = wpmToMs(newWpm);
       return newWpm;
     });
   }, []);
 
   const increaseSpeed = () => changeSpeed(WPM_STEP);
   const decreaseSpeed = () => changeSpeed(-WPM_STEP);
- 
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (isFinished) return;
@@ -108,35 +109,35 @@ export default function CalibrationSession() {
       { speed: speedMsToSend },
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    .then(() => {
-      alert(`Zapisano ${currentWpm} WPM jako Twoje domyślne tempo!`);
-      navigate('/dashboard');
-    })
-    .catch(() => alert("Błąd zapisu ustawień."));
+      .then(() => {
+        alert(`Zapisano ${currentWpm} WPM jako Twoje domyślne tempo!`);
+        navigate('/dashboard');
+      })
+      .catch(() => alert("Błąd zapisu ustawień."));
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-background-main text-text-primary flex items-center justify-center p-4 md:p-8">
         <div className="flex items-center gap-3">
-          <div className="spinner" />
-          <span className="text-xl text-white/70">Ładowanie tekstu kalibracyjnego...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+          <span className="text-xl text-text-secondary">Ładowanie tekstu kalibracyjnego...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page-wrapper">
-      <div className="container max-w-5xl">
+    <div className="min-h-screen bg-background-main text-text-primary p-4 md:p-8">
+      <div className="mx-auto w-full max-w-5xl">
         {!isFinished ? (
           <div className="animate-fade-in">
             <div className="text-center mb-8">
-              <h1 className="text-gradient text-5xl font-bold mb-4">
+              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Kalibracja Prędkości
               </h1>
-              <p className="text-lg text-white/70 max-w-2xl mx-auto leading-relaxed">
-                Czytaj tekst poniżej. Użyj przycisków lub strzałek <kbd className="px-2 py-1 bg-white/10 rounded border border-white/20">↑</kbd> <kbd className="px-2 py-1 bg-white/10 rounded border border-white/20">↓</kbd> aby dostosować tempo,
+              <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
+                Czytaj tekst poniżej. Użyj przycisków lub strzałek <kbd className="inline-block px-2 py-1 bg-background-surface rounded-md border border-border-light text-text-primary">↑</kbd> <kbd className="inline-block px-2 py-1 bg-background-surface rounded-md border border-border-light text-text-primary">↓</kbd> aby dostosować tempo,
                 aż poczujesz komfortową prędkość. Kliknij "Zakończ", gdy znajdziesz swoje tempo.
               </p>
             </div>
@@ -147,45 +148,45 @@ export default function CalibrationSession() {
 
             <div className="mb-6 p-8">
               <div className="flex items-center justify-center gap-6">
-                <button 
+                <button
                   onClick={decreaseSpeed}
-                  className="btn btn-outline w-14 h-14 text-2xl hover:scale-110"
+                  className="inline-flex items-center justify-center w-14 h-14 rounded-md font-semibold transition-all bg-transparent text-primary border-2 border-primary hover:bg-primary hover:text-white text-2xl hover:scale-110"
                   title="Zwolnij (Strzałka w dół)"
                 >
                   ➖
                 </button>
-                
+
                 <div className="text-center min-w-[200px]">
-                  <div className="text-white/60 text-sm uppercase tracking-wider mb-1">
+                  <div className="text-text-muted text-sm uppercase tracking-wider mb-1">
                     Dostosuj Tempo
                   </div>
                   <div className="flex items-center justify-center gap-2">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                    <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                    <div className="w-2 h-2 bg-secondary rounded-full animate-pulse [animation-delay:0.2s]" />
+                    <div className="w-2 h-2 bg-accent rounded-full animate-pulse [animation-delay:0.4s]" />
                   </div>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={increaseSpeed}
-                  className="btn btn-outline w-14 h-14 text-2xl hover:scale-110"
+                  className="inline-flex items-center justify-center w-14 h-14 rounded-md font-semibold transition-all bg-transparent text-primary border-2 border-primary hover:bg-primary hover:text-white text-2xl hover:scale-110"
                   title="Przyspiesz (Strzałka w górę)"
                 >
                   ➕
                 </button>
               </div>
 
-              
+
             </div>
 
             <div className="text-center">
-              <button 
+              <button
                 onClick={handleFinish}
-                className="btn btn-primary btn-lg"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                  <polyline points="22 4 12 14.01 9 11.01"/>
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
                 Zakończ Kalibrację
               </button>
@@ -193,12 +194,12 @@ export default function CalibrationSession() {
           </div>
         ) : (
           <div className="animate-fade-in">
-            <div className="card card-gradient max-w-2xl mx-auto text-center p-12">
+            <div className="max-w-2xl mx-auto text-center p-12 rounded-lg border border-border-light bg-gradient-to-r from-background-surface to-background-elevated">
               <div className="mb-6 flex justify-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center animate-pulse">
+                <div className="w-24 h-24 bg-success rounded-full flex items-center justify-center animate-pulse shadow-lg">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
                   </svg>
                 </div>
               </div>
@@ -206,40 +207,39 @@ export default function CalibrationSession() {
               <h2 className="text-4xl font-bold mb-4">
                 Kalibracja Zakończona!
               </h2>
-              
-              <p className="text-lg text-white/70 mb-6">
+
+              <p className="text-lg text-text-secondary mb-6">
                 Twoje komfortowe tempo czytania to:
               </p>
 
-              <div className="my-8 p-8 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl border border-white/10">
-                <div className="text-7xl font-bold text-gradient mb-2">
+              <div className="my-8 p-8 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl border border-border-light">
+                <div className="text-7xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                   {currentWpm}
                 </div>
-                <div className="text-2xl text-white/60">
+                <div className="text-2xl text-text-muted">
                   słów na minutę
                 </div>
               </div>
 
-              <p className="text-lg text-white/80 mb-8">
+              <p className="text-lg text-text-secondary mb-8">
                 Czy chcesz zapisać tę wartość jako swoje domyślne tempo w ustawieniach?
               </p>
 
-              {/* Actions */}
               <div className="flex gap-4 justify-center">
-                <button 
+                <button
                   onClick={handleSaveSpeed}
-                  className="btn btn-primary btn-lg"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
+                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
                   </svg>
                   Tak, zapisz
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/dashboard')}
-                  className="btn btn-secondary btn-lg"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary text-lg"
                 >
                   Nie, wróć do panelu
                 </button>

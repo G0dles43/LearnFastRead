@@ -3,126 +3,21 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import MyAchievements from "./MyAchievements.jsx";
 import ProgressCharts from "./ProgressCharts.jsx";
-import { jwtDecode } from "jwt-decode"; 
+import { jwtDecode } from "jwt-decode";
+import LeaderboardTable from "./LeaderboardTable.jsx"; // IMPORTUJEMY NOWY KOMPONENT
 
-
-const getMedalIcon = (rank) => {
-  if (rank === 1) return "🥇";
-  if (rank === 2) return "🥈";
-  if (rank === 3) return "🥉";
-  if (typeof rank !== 'number') return "?"; 
-  return rank;
-};
-
-const getRankBadge = (rank) => {
-  if (rank <= 3 && typeof rank === 'number') {
-    const colors = {
-      1: { bg: 'linear-gradient(135deg, #FFD700, #FFA500)', shadow: 'rgba(255, 215, 0, 0.3)' },
-      2: { bg: 'linear-gradient(135deg, #C0C0C0, #A0A0A0)', shadow: 'rgba(192, 192, 192, 0.3)' },
-      3: { bg: 'linear-gradient(135deg, #CD7F32, #B8860B)', shadow: 'rgba(205, 127, 50, 0.3)' }
-    };
-    return colors[rank];
-  }
-  return { bg: 'var(--bg-elevated)', shadow: 'transparent' };
-};
-
-const LeaderboardTable = ({ users, onFollowToggle, followingIds, currentUserId }) => {
-  const API_BASE_URL = "http://127.0.0.1:8000";
-
-  if (users.length === 0) {
-    return (
-      <div className="text-center py-20 px-6 bg-white/5 rounded-xl border border-white/10">
-        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" className="mx-auto mb-6">
-          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-        </svg>
-        <h3 className="text-2xl mb-2">Ranking jest pusty!</h3>
-        <p className="text-text-secondary">
-          Nie ma tu jeszcze żadnych wyników.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="card card-elevated overflow-hidden p-0">
-      <div className="overflow-x-auto">
-        <div className="min-w-[900px]">
-          <div className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.5fr] gap-4 p-4 border-b border-border text-text-secondary uppercase text-xs font-semibold">
-            <span>Pozycja</span>
-            <span>Użytkownik</span>
-            <span className="text-center">Punkty</span>
-            <span className="text-center">Śr. WPM</span>
-            <span className="text-center">Trafność</span>
-            <span className="text-center">Ukończone</span>
-            <span className="text-right">Akcja</span>
-          </div>
-
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.5fr] gap-4 items-center p-4 border-b border-border transition-colors hover:bg-background-surface-hover"
-            >
-              <div 
-                className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold"
-                style={{
-                  background: getRankBadge(user.rank).bg,
-                  boxShadow: `0 4px 12px ${getRankBadge(user.rank).shadow}`
-                }}
-              >
-                {getMedalIcon(user.rank)}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <img 
-                  src={user.avatar_url || `${API_BASE_URL}/media/avatars/default.png`}
-                  alt={`${user.username} avatar`}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-border"
-                  onError={(e) => { 
-                    e.target.src = `${API_BASE_URL}/media/avatars/default.png` 
-                  }}
-                />
-                <div className="flex flex-col">
-                  <span className="text-lg font-semibold">{user.username}</span>
-                  {user.id === currentUserId && (
-                    <span className="badge badge-primary text-xs">TY</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="text-center text-lg font-bold text-warning">{user.total_points}</div>
-              <div className="text-center text-lg">{user.average_wpm}</div>
-              <div className="text-center text-lg">{user.average_accuracy}%</div>
-              <div className="text-center text-lg">{user.exercises_completed}</div>
-
-              <div className="text-right">
-                {user.id !== currentUserId && (
-                  <button
-                    onClick={() => onFollowToggle(user.id, followingIds.includes(user.id))}
-                    className={`btn ${followingIds.includes(user.id) ? 'btn-secondary' : 'btn-primary'}`}
-                  >
-                    {followingIds.includes(user.id) ? 'Obserwujesz' : 'Obserwuj'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
+// Funkcje pomocnicze i komponent LeaderboardTable zostały przeniesione do LeaderboardTable.jsx
 
 export default function Leaderboard({ api }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const [activeTab, setActiveTab] = useState("my-stats"); 
+
+  const [activeTab, setActiveTab] = useState("my-stats");
 
   const [friendsLeaderboard, setFriendsLeaderboard] = useState([]);
-  const [followingIds, setFollowingIds] = useState([]); 
+  const [followingIds, setFollowingIds] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,18 +29,18 @@ export default function Leaderboard({ api }) {
 
   const handleFollowToggle = async (userIdToToggle, isCurrentlyFollowing) => {
     if (!api) return;
-    
+
     const action = isCurrentlyFollowing ? 'unfollow' : 'follow';
-    
+
     try {
       await api.post(`friends/${action}/`, { user_id: userIdToToggle });
-      
+
       if (isCurrentlyFollowing) {
         setFollowingIds(prev => prev.filter(id => id !== userIdToToggle));
       } else {
         setFollowingIds(prev => [...prev, userIdToToggle]);
       }
-      
+
       if (activeTab === 'friends') {
         fetchFriendsLeaderboard();
       }
@@ -186,9 +81,9 @@ export default function Leaderboard({ api }) {
     } finally {
       setLoading(false);
     }
-  }, [api]); 
+  }, [api]);
 
-  
+
   useEffect(() => {
     if (!token || !api) {
       navigate("/login");
@@ -196,8 +91,8 @@ export default function Leaderboard({ api }) {
     }
 
     try {
-        const decoded = jwtDecode(token);
-        setCurrentUserId(decoded.user_id);
+      const decoded = jwtDecode(token);
+      setCurrentUserId(decoded.user_id);
     } catch (e) { console.error("Błąd tokenu"); }
 
     async function fetchData() {
@@ -209,7 +104,7 @@ export default function Leaderboard({ api }) {
           api.get("ranking/leaderboard/"),
           api.get("friends/following/")
         ]);
-        
+
         setMyStats(statsRes.data);
         setLeaderboard(leaderboardRes.data.leaderboard);
         setFollowingIds(followingRes.data);
@@ -221,7 +116,7 @@ export default function Leaderboard({ api }) {
         setLoading(false);
       }
     }
-    
+
     fetchData();
   }, [token, navigate, api]);
 
@@ -231,105 +126,116 @@ export default function Leaderboard({ api }) {
     }
   }, [activeTab, fetchFriendsLeaderboard]);
 
+  // Funkcja getRankBadgeClasses (potrzebna do MyStats) musi tu zostać
+  // lub zostać przeniesiona do globalnego utils. Zostawmy ją tutaj na razie.
+  const getRankBadgeClasses = (rank) => {
+    if (rank === 1) return 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30 text-white';
+    if (rank === 2) return 'bg-gradient-to-br from-gray-300 to-gray-400 shadow-lg shadow-gray-300/30 text-gray-800';
+    if (rank === 3) return 'bg-gradient-to-br from-orange-400 to-yellow-600 shadow-lg shadow-orange-400/30 text-white';
+    return 'bg-background-elevated shadow-transparent text-text-primary';
+  };
+  
+  // getMedalIcon jest też potrzebny tutaj
+  const getMedalIcon = (rank) => {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    if (typeof rank !== 'number') return "?";
+    return rank;
+  };
 
-  if (loading && activeTab === 'my-stats') { 
+
+  if (loading && activeTab === 'my-stats') {
     return (
-      <div className="page-wrapper flex items-center justify-center">
-        <div className="spinner"></div>
+      <div className="min-h-screen bg-background-main text-text-primary flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="page-wrapper">
-      <div className="container" style={{ maxWidth: '1400px' }}>
+    <div className="min-h-screen bg-background-main text-text-primary p-4 md:p-8">
+      <div className="mx-auto w-full max-w-[1400px]">
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
-            <h1 className="text-gradient mb-2" style={{ fontSize: '2.5rem' }}>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               🏆 Ranking i Społeczność
             </h1>
             <p className="text-text-secondary text-lg">
               Sprawdź swoją pozycję, znajdź znajomych i rywalizuj
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={() => navigate("/dashboard")}>
+          <button
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
+            onClick={() => navigate("/dashboard")}
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             Powrót
           </button>
         </header>
 
         {myStats && (
-          <div className="card card-elevated animate-fade-in" style={{
-            padding: '2rem',
-            marginBottom: '2rem',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.05))',
-            border: '2px solid rgba(99, 102, 241, 0.3)',
-            animationDelay: '0.1s'
-          }}>
+          <div className="bg-background-elevated shadow-md rounded-lg p-8 mb-8 animate-fade-in [animation-delay:0.1s] bg-gradient-to-r from-primary/15 to-secondary/[.05] border-2 border-primary/30">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-center">
-                <div className="flex flex-col items-center justify-center">
-                    <div className="text-sm text-text-secondary mb-2">Twoja Pozycja</div>
-                    <div style={{
-                        width: '80px', height: '80px', borderRadius: '50%',
-                        background: getRankBadge(myStats.rank).bg, 
-                        boxShadow: `0 4px 12px ${getRankBadge(myStats.rank).shadow}`, 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '2rem', fontWeight: 700
-                    }}>
-                        {getMedalIcon(myStats.rank)} 
-                    </div>
+              <div className="flex flex-col items-center justify-center">
+                <div className="text-sm text-text-secondary mb-2">Twoja Pozycja</div>
+                <div
+                  className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold ${getRankBadgeClasses(myStats.rank)}`}
+                >
+                  {getMedalIcon(myStats.rank)}
                 </div>
-                <div className="card p-4 text-center bg-background-surface">
-                    <div className="text-sm text-text-secondary mb-1">Punkty Łącznie</div>
-                    <div className="text-3xl font-bold text-warning">{myStats.total_points}</div>
-                </div>
-                <div className="card p-4 text-center bg-background-surface">
-                    <div className="text-sm text-text-secondary mb-1">Średnie WPM</div>
-                    <div className="text-3xl font-bold">{myStats.average_wpm}</div>
-                </div>
-                <div className="card p-4 text-center bg-background-surface">
-                    <div className="text-sm text-text-secondary mb-1">Śr. Trafność</div>
-                    <div className="text-3xl font-bold text-success">{myStats.average_accuracy}%</div>
-                </div>
-                <div className="card p-4 text-center bg-background-surface">
-                    <div className="text-sm text-text-secondary mb-1">Ukończone</div>
-                    <div className="text-3xl font-bold">{myStats.exercises_completed}</div>
-                </div>
+              </div>
+              <div className="p-4 text-center bg-background-surface rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">Punkty Łącznie</div>
+                <div className="text-3xl font-bold text-warning">{myStats.total_points}</div>
+              </div>
+              <div className="p-4 text-center bg-background-surface rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">Średnie WPM</div>
+                <div className="text-3xl font-bold text-text-primary">{myStats.average_wpm}</div>
+              </div>
+              <div className="p-4 text-center bg-background-surface rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">Śr. Trafność</div>
+                <div className="text-3xl font-bold text-success">{myStats.average_accuracy}%</div>
+              </div>
+              <div className="p-4 text-center bg-background-surface rounded-lg">
+                <div className="text-sm text-text-secondary mb-1">Ukończone</div>
+                <div className="text-3xl font-bold text-text-primary">{myStats.exercises_completed}</div>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="flex gap-1 mb-8 border-b-2 border-border animate-fade-in" style={{ animationDelay: '0.2s' }}>
+        <div className="flex gap-1 mb-8 border-b-2 border-border animate-fade-in [animation-delay:0.2s]">
           <button
             onClick={() => setActiveTab("my-stats")}
-            className={`btn-tab ${activeTab === "my-stats" ? 'btn-tab-active' : ''}`}
+            className={`py-4 px-6 font-semibold transition-all border-b-2 ${activeTab === "my-stats" ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
           >
             📊 Moja Historia
           </button>
           <button
             onClick={() => setActiveTab("global")}
-            className={`btn-tab ${activeTab === "global" ? 'btn-tab-active' : ''}`}
+            className={`py-4 px-6 font-semibold transition-all border-b-2 ${activeTab === "global" ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
           >
             🌍 Ranking Globalny
           </button>
           <button
             onClick={() => setActiveTab("friends")}
-            className={`btn-tab ${activeTab === "friends" ? 'btn-tab-active' : ''}`}
+            className={`py-4 px-6 font-semibold transition-all border-b-2 ${activeTab === "friends" ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
           >
             👋 Ranking Znajomych
           </button>
           <button
             onClick={() => setActiveTab("search")}
-            className={`btn-tab ${activeTab === "search" ? 'btn-tab-active' : ''}`}
+            className={`py-4 px-6 font-semibold transition-all border-b-2 ${activeTab === "search" ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
           >
             🔍 Szukaj Użytkowników
           </button>
         </div>
 
-        <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
-          
+        <div className="animate-fade-in [animation-delay:0.3s]">
+
           {activeTab === "my-stats" && (
             <div>
               {myStats && myStats.recent_results.length > 0 ? (
@@ -338,7 +244,7 @@ export default function Leaderboard({ api }) {
                   <MyAchievements />
                 </div>
               ) : (
-                <div className="card card-elevated text-center p-12">
+                <div className="bg-background-elevated shadow-md rounded-lg text-center p-12">
                   <h3 className="text-2xl mb-2">Brak historii</h3>
                   <p className="text-text-secondary">Ukończ ćwiczenia rankingowe, aby zobaczyć tu swoje postępy.</p>
                 </div>
@@ -356,13 +262,13 @@ export default function Leaderboard({ api }) {
           )}
 
           {activeTab === "friends" && (
-            loading ? <div className="spinner mx-auto"></div> :
-            <LeaderboardTable
-              users={friendsLeaderboard}
-              onFollowToggle={handleFollowToggle}
-              followingIds={followingIds}
-              currentUserId={currentUserId}
-            />
+            loading ? <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div> :
+              <LeaderboardTable
+                users={friendsLeaderboard}
+                onFollowToggle={handleFollowToggle}
+                followingIds={followingIds}
+                currentUserId={currentUserId}
+              />
           )}
 
           {activeTab === "search" && (
@@ -370,26 +276,33 @@ export default function Leaderboard({ api }) {
               <form onSubmit={handleSearch} className="flex gap-3 mb-6">
                 <input
                   type="text"
-                  className="input input-lg flex-1"
+                  className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 text-lg flex-1"
                   placeholder="Wpisz nazwę użytkownika..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <button type="submit" className="btn btn-primary btn-lg" disabled={isSearching}>
-                  {isSearching ? <div className="spinner-small"></div> : 'Szukaj'}
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light text-lg"
+                  disabled={isSearching}
+                >
+                  {isSearching ? <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current"></div> : 'Szukaj'}
                 </button>
               </form>
 
               <div className="flex flex-col gap-3">
                 {isSearching ? (
-                  <div className="spinner mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
                 ) : (
                   searchResults.map(user => (
-                    <div key={user.id} className="card card-elevated p-4 flex justify-between items-center">
-                      <span className="text-lg font-semibold">{user.username}</span>
+                    <div key={user.id} className="bg-background-elevated shadow-md rounded-lg p-4 flex justify-between items-center border border-border">
+                      <span className="text-lg font-semibold text-text-primary">{user.username}</span>
                       <button
                         onClick={() => handleFollowToggle(user.id, followingIds.includes(user.id))}
-                        className={`btn ${followingIds.includes(user.id) ? 'btn-secondary' : 'btn-primary'}`}
+                        className={followingIds.includes(user.id)
+                          ? "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
+                          : "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light"
+                        }
                       >
                         {followingIds.includes(user.id) ? 'Obserwujesz' : 'Obserwuj'}
                       </button>

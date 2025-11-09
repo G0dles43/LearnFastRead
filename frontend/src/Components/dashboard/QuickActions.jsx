@@ -1,74 +1,74 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function QuickActions({ isAdmin, isLoading }) { 
+export default function QuickActions({ isAdmin, isLoading }) {
   const navigate = useNavigate();
 
   return (
-    <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-8 animate-fade-in`} style={{ animationDelay: '0.1s' }}>
-      
+    <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-8 animate-fade-in [animation-delay:0.1s]`}>
+
       {!isLoading && isAdmin && (
         <button
-          className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-success"
+          className="bg-background-elevated shadow-md rounded-lg border border-border flex items-center gap-4 p-6 cursor-pointer transition-all hover:border-success hover:shadow-lg hover:-translate-y-0.5"
           onClick={() => navigate("/manage-collections")}
         >
-          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-success to-[#059669] flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-success to-green-600 flex items-center justify-center flex-shrink-0">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="stroke-white" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
             </svg>
           </div>
           <div className="text-left">
-            <h3 className="text-lg mb-1">Kolekcje</h3>
+            <h3 className="text-lg mb-1 text-text-primary">Kolekcje</h3>
             <p className="text-text-secondary text-sm">(Admin) Zarządzaj</p>
           </div>
         </button>
       )}
-      
+
       <button
-        className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-primary"
+        className="bg-background-elevated shadow-md rounded-lg border border-border flex items-center gap-4 p-6 cursor-pointer transition-all hover:border-primary hover:shadow-lg hover:-translate-y-0.5"
         onClick={() => navigate("/create-exercise")}
       >
-        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-primary-light flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="stroke-white" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
         </div>
         <div className="text-left">
-          <h3 className="text-lg mb-1">Nowe ćwiczenie</h3>
+          <h3 className="text-lg mb-1 text-text-primary">Nowe ćwiczenie</h3>
           <p className="text-text-secondary text-sm">Stwórz własny tekst</p>
         </div>
       </button>
 
       <button
-        className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-warning"
+        className="bg-background-elevated shadow-md rounded-lg border border-border flex items-center gap-4 p-6 cursor-pointer transition-all hover:border-warning hover:shadow-lg hover:-translate-y-0.5"
         onClick={() => navigate("/ranking")}
       >
-        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-warning to-[#fbbf24] flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-warning to-yellow-500 flex items-center justify-center flex-shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" className="fill-white">
             <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
           </svg>
         </div>
         <div className="text-left">
-          <h3 className="text-lg mb-1">Ranking</h3>
+          <h3 className="text-lg mb-1 text-text-primary">Ranking</h3>
           <p className="text-text-secondary text-sm">Sprawdź pozycję</p>
         </div>
       </button>
 
       <button
-        className="card card-gradient flex items-center gap-4 p-6 cursor-pointer border-2 border-transparent transition-all hover:border-secondary"
+        className="bg-background-elevated shadow-md rounded-lg border border-border flex items-center gap-4 p-6 cursor-pointer transition-all hover:border-secondary hover:shadow-lg hover:-translate-y-0.5"
         onClick={() => navigate("/how-it-works")}
       >
-        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-secondary to-[#a78bfa] flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-secondary to-purple-400 flex items-center justify-center flex-shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="stroke-white" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
             <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </div>
         <div className="text-left">
-          <h3 className="text-lg mb-1">Jak to działa?</h3>
+          <h3 className="text-lg mb-1 text-text-primary">Jak to działa?</h3>
           <p className="text-text-secondary text-sm">Zobacz zasady</p>
         </div>
       </button>

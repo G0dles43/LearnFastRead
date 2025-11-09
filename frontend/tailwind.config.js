@@ -9,37 +9,55 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#007aff',
-          hover: '#0056b3',
-          dark: '#0056b3',
+          DEFAULT: 'var(--primary)',
+          hover: 'var(--primary-hover)',
+          light: 'var(--primary-light)',
         },
+        secondary: 'var(--secondary)',
+        accent: 'var(--accent)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
         danger: {
-          DEFAULT: '#ff3b30',
-          hover: '#c70000',
+          DEFAULT: 'var(--danger)',
+          // Twój CSS nie miał hovera dla danger, więc używamy tego samego
+          // Jeśli chcesz inny, dodaj --danger-hover do :root w CSS
+          hover: 'var(--danger)', 
         },
-        warning: '#ffcc00',
         background: {
-          main: '#121212',
-          surface: '#1e1e1e',
-          'surface-hover': '#2a2a2a',
+          main: 'var(--bg-main)',
+          surface: 'var(--bg-surface)',
+          'surface-hover': 'var(--bg-surface-hover)',
+          elevated: 'var(--bg-elevated)',
         },
         text: {
-          primary: '#e0e0e0',
-          secondary: '#a0a0a0',
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
         },
-        border: '#333333',
+        border: {
+          DEFAULT: 'var(--border)',
+          light: 'var(--border-light)',
+        }
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Używamy 'Inter' jako głównego fonta, tak jak w twoim app.css
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       borderRadius: {
-        sm: '4px',
-        md: '8px',
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
       },
       boxShadow: {
-        sm: '0 2px 4px rgba(0,0,0,0.2)',
-        md: '0 4px 12px rgba(0,0,0,0.25)',
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        xl: 'var(--shadow-xl)',
       },
+      transitionProperty: {
+        'all': 'var(--transition)',
+      }
     },
   },
   plugins: [],

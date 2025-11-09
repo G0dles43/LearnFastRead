@@ -23,7 +23,27 @@ export default function NotificationBell({ api }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const dropdownRef = useRef(null);
+  const audioRef = useRef(null);
+  const previousCountRef = useRef(0);
   const API_BASE_URL = "http://127.0.0.1:8000";
+
+  const playNotificationSound = () => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.volume = 0.5;
+        audioRef.current.currentTime = 0;
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn("Autoplay zablokowany przez przeglądarkę:", err);
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Błąd odtwarzania dźwięku:", err);
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -32,10 +52,20 @@ export default function NotificationBell({ api }) {
       
       const res = await api.get('/notifications/');
       
+      const newUnreadCount = res.data.filter(n => !n.read).length;
+      
+      console.log("📊 Poprzednia liczba:", previousCountRef.current, "Nowa liczba:", newUnreadCount);
+      
+      if (previousCountRef.current < newUnreadCount && previousCountRef.current !== 0) {
+        console.log("🔔 Odtwarzam dźwięk powiadomienia!");
+        playNotificationSound();
+      }
+      
+      previousCountRef.current = newUnreadCount;
       setNotifications(res.data);
-      setUnreadCount(res.data.filter(n => !n.read).length);
+      setUnreadCount(newUnreadCount);
     } catch (err) {
-      console.error("❌ [Frontend] Błąd pobierania powiadomień:", err);
+      console.error("Błąd pobierania powiadomień:", err);
       setError("Nie udało się pobrać powiadomień");
     } finally {
       setLoading(false);
@@ -62,22 +92,19 @@ export default function NotificationBell({ api }) {
   }, []);
 
   const markAllAsRead = async () => {
-  if (unreadCount === 0) return; 
+    if (unreadCount === 0) return; 
 
-  try {
-    console.log("📝 Oznaczam wszystkie jako przeczytane...");
-    
-    const res = await api.post('/notifications/mark-all-as-read/');
-    console.log("✅ Odpowiedź serwera:", res.data);
-    
-    setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    
-  } catch (err) {
-    console.error("❌ Błąd oznaczania:", err.response?.data || err);
-    alert("Nie udało się oznaczyć powiadomień jako przeczytane");
-  }
-};
+    try {
+      await api.post('/notifications/mark-all-as-read/');
+      
+      setUnreadCount(0);
+      previousCountRef.current = 0;
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error("Błąd oznaczania:", err.response?.data || err);
+      alert("Nie udało się oznaczyć powiadomień jako przeczytane");
+    }
+  };
 
   const handleToggle = () => {
     setIsOpen(prev => !prev);
@@ -88,10 +115,15 @@ export default function NotificationBell({ api }) {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      <audio 
+        ref={audioRef} 
+        src="/notifications.mp3" 
+        preload="auto"
+      />
+      
       <button
         onClick={handleToggle}
-        className="btn btn-ghost"
-        style={{ padding: '0.75rem', position: 'relative' }}
+        className="btn btn-ghost p-3 relative"
         title="Powiadomienia"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -103,10 +135,7 @@ export default function NotificationBell({ api }) {
       </button>
 
       {isOpen && (
-        <div 
-          className="card card-elevated absolute top-full right-0 mt-2 w-80 max-w-sm z-50 animate-fade-in"
-          style={{ padding: '0', overflow: 'hidden' }}
-        >
+        <div className="card card-elevated absolute top-full right-0 mt-2 w-80 max-w-sm z-50 animate-fade-in p-0 overflow-hidden">
           <div className="p-4 border-b border-border">
             <h4 className="font-semibold text-lg">Powiadomienia</h4>
           </div>
