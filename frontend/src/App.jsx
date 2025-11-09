@@ -17,6 +17,7 @@ import Profile from "./Components/dashboard/Profile.jsx";
 import axios from "axios";
 import { useEffect } from "react"; 
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { useTheme } from './hooks/useTheme'
 
 const GOOGLE_CLIENT_ID = "11078447520-dmlr36fl2dd6acetjjdosi56ba8qksn2.apps.googleusercontent.com";
 
@@ -85,6 +86,8 @@ const createAxiosInstance = () => {
 function App() {
   const apiInstance = createAxiosInstance(); 
   const navigate = useNavigate(); 
+
+  useTheme();
 
   useEffect(() => {
     const errorInterceptor = apiInstance.interceptors.response.use(

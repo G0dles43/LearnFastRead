@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../ui/NotificationBell.jsx";
+import ThemeToggleButton from "../dashboard/ThemeToggleButton.jsx";
 
 export default function DashboardHeader({ userName, currentStreak, isLoading, api }) {
   const navigate = useNavigate();
@@ -11,6 +12,16 @@ export default function DashboardHeader({ userName, currentStreak, isLoading, ap
       return 'dni';
     }
     return 'dni';
+  };
+
+  const handleLogout = () => {
+    // === POCZĄTEK ZMIANY ===
+    // Zamiast localStorage.clear(), usuwamy tylko klucze sesji
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    // To zostawi klucz "theme" nietknięty
+    // === KONIEC ZMIANY ===
+    navigate("/");
   };
 
   return (
@@ -78,12 +89,14 @@ export default function DashboardHeader({ userName, currentStreak, isLoading, ap
         </Link>
         <button
           className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
-          onClick={() => { localStorage.clear(); navigate("/"); }}
+          onClick={handleLogout} 
         >
           Wyloguj
         </button>
 
         <NotificationBell api={api} />
+        
+        <ThemeToggleButton />
 
       </div>
     </header>

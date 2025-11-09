@@ -4,7 +4,7 @@ module.exports = {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
+  darkMode: 'class', 
   theme: {
     extend: {
       colors: {
@@ -19,9 +19,7 @@ module.exports = {
         warning: 'var(--warning)',
         danger: {
           DEFAULT: 'var(--danger)',
-          // Twój CSS nie miał hovera dla danger, więc używamy tego samego
-          // Jeśli chcesz inny, dodaj --danger-hover do :root w CSS
-          hover: 'var(--danger)', 
+          hover: 'var(--danger)',
         },
         background: {
           main: 'var(--bg-main)',
@@ -40,7 +38,6 @@ module.exports = {
         }
       },
       fontFamily: {
-        // Używamy 'Inter' jako głównego fonta, tak jak w twoim app.css
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       borderRadius: {
@@ -57,6 +54,15 @@ module.exports = {
       },
       transitionProperty: {
         'all': 'var(--transition)',
+      },
+      animation: {
+        'float': 'float 6s ease-in-out infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-20px)' },
+        }
       }
     },
   },

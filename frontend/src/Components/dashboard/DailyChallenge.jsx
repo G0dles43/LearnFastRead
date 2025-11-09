@@ -48,7 +48,7 @@ export default function DailyChallenge() {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg shadow-md border-2 bg-[url('/3.png')] bg-cover bg-center ${isCompleted ? 'border-success' : 'border-border-light'
+      className={`relative overflow-hidden rounded-lg shadow-md border-2  bg-cover bg-center ${isCompleted ? 'border-success' : 'border-border-light'
         }`}
     >
       <div
