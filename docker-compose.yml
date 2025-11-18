@@ -1,34 +1,27 @@
-version: "3.8"
+version: '3.8'
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
+    container_name: speedreading_backend
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app           # Mapowanie kodu (Hot Reload)
     ports:
       - "8000:8000"
-    depends_on:
-      - db
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-secret-key
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
+    container_name: speedreading_frontend
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app          # Mapowanie kodu
+      - /app/node_modules        # WAŻNE: Nie nadpisuj node_modules z hosta
     ports:
-      - "3000:3000"
-
-  db:
-    image: postgres:15
+      - "5173:5173"
     environment:
-      POSTGRES_DB: app
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend

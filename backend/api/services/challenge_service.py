@@ -1,36 +1,35 @@
-import logging
+from ..models import DailyChallenge, ReadingExercise
 from django.utils import timezone
-from ..models import ReadingExercise
+import random
 
-logger = logging.getLogger(__name__)
+def get_today_challenge():
+    today = timezone.now().date()
+    
+    specific_challenge = DailyChallenge.objects.filter(date=today).first()
+    if specific_challenge:
+        return specific_challenge.exercise
 
-def get_today_challenge() -> ReadingExercise | None:
-    """
-    Wybiera jedno ćwiczenie jako "Wyzwanie Dnia" na podstawie
-    algorytmu (dzień roku % liczba ćwiczeń).
+    daily_entry, created = DailyChallenge.objects.get_or_create(date=today)
     
-    Zwraca obiekt ReadingExercise lub None.
-    """
-    eligible_exercises = ReadingExercise.objects.filter(
-        is_public=True,
-        is_ranked=True
-    ).order_by('id') # Ważne jest stałe sortowanie!
-    
-    count = eligible_exercises.count()
-    
-    if count == 0:
-        # Sytuacja awaryjna: nie ma żadnych publicznych, rankingowych ćwiczeń.
-        # Spróbujmy znaleźć JAKIEKOLWIEK rankingowe.
-        any_ranked = ReadingExercise.objects.filter(is_ranked=True).order_by('id').first()
-        if not any_ranked:
-            logger.error("CRITICAL: Brak jakichkolwiek ćwiczeń rankingowych w systemie. Wyzwanie Dnia nie działa.")
-            return None
+    if not created and daily_entry.exercise:
+        return daily_entry.exercise
+
+    pool = ReadingExercise.objects.filter(
+        is_ranked=True, 
+        is_daily_candidate=True
+    )
+
+    if not pool.exists():
+        pool = ReadingExercise.objects.filter(is_ranked=True, is_public=True)
+
+    if pool.exists():
+        seed_val = int(today.strftime('%Y%m%d'))
+        random.seed(seed_val)
+        chosen_exercise = random.choice(list(pool))
         
-        logger.warning(f"Brak publicznych ćwiczeń rankingowych. Wyzwanie Dnia używa awaryjnie ID: {any_ranked.id}")
-        return any_ranked # Lepsze to niż nic
-
-    # Algorytm wyboru
-    day_of_year = timezone.now().timetuple().tm_yday
-    challenge_index = day_of_year % count
-    
-    return eligible_exercises[challenge_index]
+        daily_entry.exercise = chosen_exercise
+        daily_entry.save()
+        
+        return chosen_exercise
+        
+    return None

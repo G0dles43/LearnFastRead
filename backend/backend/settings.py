@@ -11,8 +11,7 @@ SECRET_KEY = "django-insecure-2_im8)@(fao^z)#@98q3#*e7!8-4p7@z%d^4n-7ov1*c#$ok(f
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "backend"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -52,6 +51,11 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 ROOT_URLCONF = "backend.urls"
 

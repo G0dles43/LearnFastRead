@@ -17,6 +17,7 @@ export default function ExerciseCard({
     is_ranked,
     user_attempt_status,
     is_public,
+    is_today_daily, // <--- Nowe pole z API
     word_count,
     created_by,
     created_by_id,
@@ -30,7 +31,9 @@ export default function ExerciseCard({
 
   return (
     <div
-      className="bg-background-elevated shadow-md rounded-lg border border-border p-6 animate-fade-in flex flex-col justify-between min-h-[200px]"
+      className={`bg-background-elevated shadow-md rounded-lg border p-6 animate-fade-in flex flex-col justify-between min-h-[200px] ${
+        is_today_daily ? 'border-2 border-purple-500/50 shadow-purple-500/10' : 'border-border'
+      }`}
       style={{ animationDelay }}
     >
       <div>
@@ -39,9 +42,16 @@ export default function ExerciseCard({
             {title}
           </h3>
 
+          {/* ETYKIETA DAILY */}
+          {is_today_daily && (
+            <span className="inline-flex items-center mt-3 gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-purple-500 text-white shadow-sm animate-pulse">
+               🔥 WYZWANIE DNIA
+            </span>
+          )}
+
           {is_ranked ? (
             <>
-              {user_attempt_status === 'training_cooldown' ? (
+              {user_attempt_status === 'training_cooldown' && !is_today_daily ? ( // Jeśli daily, to ignorujemy cooldown wizualnie
                 <span className="inline-flex items-center mt-3  gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1">
                     <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" />
@@ -125,7 +135,9 @@ export default function ExerciseCard({
         )}
 
         <button
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light min-w-[120px]"
+          className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 min-w-[120px] ${
+            'bg-gradient-to-r from-primary to-primary-light'
+          }`}
           onClick={() => onStart(exercise)}
         >
           Rozpocznij

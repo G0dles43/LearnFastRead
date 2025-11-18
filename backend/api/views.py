@@ -4,7 +4,7 @@ from rest_framework import generics, permissions
 from .permissions import IsOwnerOrAdminOrReadOnly
 from django.contrib.auth import get_user_model
 from .serializers import RegisterSerializer
-from .models import Notification, Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
+from .models import DailyChallenge, Notification, Friendship, ReadingExercise, Question, UserProgress, UserAchievement, ExerciseCollection
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -74,7 +74,8 @@ class ReadingExerciseList(generics.ListAPIView):
             queryset = ReadingExercise.objects.all()
         else:
             queryset = ReadingExercise.objects.filter(
-                Q(is_public=True) | Q(created_by=user)
+                (Q(is_public=True) & Q(is_daily_candidate=False)) | 
+                Q(created_by=user)
             )
 
         show_only_my_private = self.request.query_params.get('my_private')
@@ -351,9 +352,29 @@ class SearchExercises(APIView):
 
 
 class ReadingExerciseDetail(generics.RetrieveAPIView):
-    queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        today = timezone.now().date()
+        todays_challenge_id = None
+        
+        try:
+            challenge = DailyChallenge.objects.get(date=today)
+            todays_challenge_id = challenge.exercise.id
+        except DailyChallenge.DoesNotExist:
+            pass
+
+        if user.is_staff:
+            return ReadingExercise.objects.all()
+            
+        return ReadingExercise.objects.filter(
+            Q(is_public=True) | 
+            Q(created_by=user) |
+            Q(id=todays_challenge_id)
+        )
 
 
 @api_view(['POST'])

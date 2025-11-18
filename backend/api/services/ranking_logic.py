@@ -33,29 +33,46 @@ def _can_resubmit_for_ranking(last_ranked_attempt: UserProgress) -> bool:
     one_month_ago = timezone.now() - timedelta(days=30)
     return last_ranked_attempt.completed_at < one_month_ago
 
-# Ta funkcja zastępuje _handle_ranking_eligibility
 def determine_ranking_eligibility(progress: UserProgress):
-    """
-    Określa czy ta próba może liczyć się do rankingu.
-    Ustawia pola na obiekcie 'progress' (ale go nie zapisuje!).
-    """
-    previous_attempts = UserProgress.objects.filter(
-        user=progress.user, exercise=progress.exercise
-    )
-    progress.attempt_number = previous_attempts.count() + 1
+    user = progress.user
+    exercise = progress.exercise
+
+    today = timezone.now().date()
+    today_challenge = DailyChallenge.objects.filter(date=today).first()
     
-    last_ranked_attempt = previous_attempts.filter(counted_for_ranking=True).first()
+    is_today_challenge = (today_challenge and today_challenge.exercise.id == exercise.id)
+
+    if is_today_challenge:
+        already_completed_today = UserProgress.objects.filter(
+            user=user,
+            exercise=exercise,
+            completed_daily_challenge=True,
+            completed_at__date=today
+        ).exists()
+
+        if not already_completed_today:
+            progress.counted_for_ranking = True
+            progress.completed_daily_challenge = True
+            return None 
+
+    one_month_ago = timezone.now() - timedelta(days=30)
     
-    if not last_ranked_attempt:
+    last_ranked = UserProgress.objects.filter(
+        user=user,
+        exercise=exercise,
+        counted_for_ranking=True
+    ).order_by('-completed_at').first()
+
+    if last_ranked:
+        if last_ranked.completed_at >= one_month_ago:
+            progress.counted_for_ranking = False
+            return None
+        else:
+            progress.counted_for_ranking = True
+            return last_ranked
+    else:
         progress.counted_for_ranking = True
-        return None # Nie ma starej próby do deaktywacji
-    
-    if _can_resubmit_for_ranking(last_ranked_attempt):
-        progress.counted_for_ranking = True
-        return last_ranked_attempt # Zwraca starą próbę do deaktywacji
-    
-    progress.counted_for_ranking = False
-    return None
+        return None
 
 # Ta funkcja zastępuje _calculate_points_with_bonus
 def calculate_final_points(progress: UserProgress):

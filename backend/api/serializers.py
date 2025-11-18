@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Notification, Friendship, ReadingExercise, UserProgress, Question, Achievement, UserAchievement, ExerciseCollection
+from .models import DailyChallenge, Notification, Friendship, ReadingExercise, UserProgress, Question, Achievement, UserAchievement, ExerciseCollection
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils import timezone
@@ -152,18 +152,32 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True, required=False)
     is_favorite = serializers.SerializerMethodField()
     created_by_is_admin = serializers.SerializerMethodField()
-    
     user_attempt_status = serializers.SerializerMethodField()
+
+    daily_date = serializers.DateField(write_only=True, required=False, allow_null=True)
+    scheduled_date = serializers.SerializerMethodField()
+    
+    # --- NOWE POLE ---
+    is_today_daily = serializers.SerializerMethodField()
 
     class Meta:
         model = ReadingExercise
-        fields = ['id', 'title', 'text', 'created_at', 'is_public', 'is_ranked', 
-                  'created_by', 'created_by_id', 'word_count', 'questions', 
-                  'is_favorite', 'created_by_is_admin',
-                  'user_attempt_status' 
-                 ]
+        fields = [
+            'id', 'title', 'text', 'created_at', 'is_public', 'is_ranked', 
+            'is_daily_candidate',
+            'created_by', 'created_by_id', 'word_count', 'questions', 
+            'is_favorite', 'created_by_is_admin', 'user_attempt_status',
+            'daily_date', 'scheduled_date', 'is_today_daily' # <--- DODAJ TUTAJ
+        ]
         read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
+    def get_is_today_daily(self, obj):
+        """Zwraca True, jeśli to ćwiczenie jest DZIŚ wyzwaniem dnia"""
+        today = timezone.now().date()
+        is_daily = DailyChallenge.objects.filter(date=today, exercise=obj).exists()
+        return is_daily
+
+    
     def get_is_favorite(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -174,6 +188,10 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         if obj.created_by:
             return obj.created_by.is_staff 
         return False 
+    
+    def get_scheduled_date(self, obj):
+        challenge = DailyChallenge.objects.filter(exercise=obj).first()
+        return challenge.date if challenge else None
     
     def get_user_attempt_status(self, obj):
         request = self.context.get('request')
@@ -209,11 +227,13 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Nie możesz tworzyć ćwiczeń ranked.")
         return data
     
+    @transaction.atomic
     def create(self, validated_data):
         questions_data = self.context['request'].data.get('questions', []) 
-        validated_data.pop('questions', None) 
+        daily_date = validated_data.pop('daily_date', None)
         
-        validated_data.pop('favorited_by', None)   
+        validated_data.pop('questions', None) 
+        validated_data.pop('favorited_by', None) 
 
         exercise = ReadingExercise.objects.create(**validated_data)
         
@@ -221,11 +241,16 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
             for question_data in questions_data:
                 Question.objects.create(exercise=exercise, **question_data)
         
+        if daily_date and self.context['request'].user.is_staff:
+            DailyChallenge.objects.filter(date=daily_date).delete()
+            DailyChallenge.objects.create(date=daily_date, exercise=exercise)
+        
         return exercise
     
     @transaction.atomic
     def update(self, instance, validated_data):
         questions_data = self.context['request'].data.get('questions')
+        daily_date = validated_data.pop('daily_date', None)
 
         instance.title = validated_data.get('title', instance.title)
         instance.text = validated_data.get('text', instance.text)
@@ -233,13 +258,23 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
         if self.context['request'].user.is_staff:
             instance.is_public = validated_data.get('is_public', instance.is_public)
             instance.is_ranked = validated_data.get('is_ranked', instance.is_ranked)
+            instance.is_daily_candidate = validated_data.get('is_daily_candidate', instance.is_daily_candidate)
         
         instance.save() 
+        
         if questions_data is not None:
             instance.questions.all().delete()
             for question_data in questions_data:
                 question_data.pop('id', None) 
                 Question.objects.create(exercise=instance, **question_data)
+
+        if self.context['request'].user.is_staff:
+            if daily_date:
+                DailyChallenge.objects.filter(exercise=instance).delete()
+                DailyChallenge.objects.filter(date=daily_date).delete()
+                DailyChallenge.objects.create(date=daily_date, exercise=instance)
+            elif daily_date is None and 'daily_date' in self.context['request'].data:
+                 DailyChallenge.objects.filter(exercise=instance).delete()
 
         return instance
     

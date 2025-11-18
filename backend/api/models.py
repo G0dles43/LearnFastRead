@@ -57,6 +57,12 @@ class ReadingExercise(models.Model):
     favorited_by = models.ManyToManyField(CustomUser, related_name='favorite_exercises', blank=True)
     is_public = models.BooleanField(default=False)
     is_ranked = models.BooleanField(default=False)
+    
+    is_daily_candidate = models.BooleanField(
+        default=False, 
+        help_text="Czy to ćwiczenie jest w ukrytej puli do losowania Daily Challenge?"
+    )
+    
     created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
     word_count = models.IntegerField(default=0, editable=False)
     
