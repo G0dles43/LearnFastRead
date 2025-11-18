@@ -6,29 +6,31 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
 
   const [openCount, setOpenCount] = useState(10);
   const [choiceCount, setChoiceCount] = useState(5);
+  
+  const MIN_TOTAL = 15;
+  const MAX_TOTAL = 50;
+
+  const totalCount = openCount + choiceCount;
 
   const handleGenerateAiQuestions = async () => {
     if (!text.trim() || text.trim().length < 50) {
-      onError("Wklej najpierw tekst źródłowy (minimum 50 znaków), aby AI mogło działać.");
+      onError("Wklej najpierw tekst źródłowy (minimum 50 znaków).");
+      return;
+    }
+
+    if (totalCount < MIN_TOTAL) {
+      onError(`Suma pytań musi wynosić co najmniej ${MIN_TOTAL}.`);
       return;
     }
 
     setAiLoading(true);
     onError(null);
 
-    const total_count = openCount + choiceCount;
-
-    if (total_count < 15) {
-      onError("Suma pytań (otwartych + zamkniętych) musi wynosić co najmniej 15.");
-      setAiLoading(false);
-      return;
-    }
-
     try {
       const res = await api.post("ai/generate-questions/", {
         content: text,
         topic: topic || "Ogólny temat",
-        total_count: total_count,
+        total_count: totalCount,
         open_count: openCount,
         choice_count: choiceCount
       });
@@ -37,8 +39,8 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
       setIsModalOpen(false);
 
     } catch (err) {
-      console.error("Błąd podczas generowania pytań AI:", err);
-      const errorMsg = err.response?.data?.error || "Nie udało się wygenerować pytań. Spróbuj ponownie.";
+      console.error("Błąd AI:", err);
+      const errorMsg = err.response?.data?.error || "Nie udało się wygenerować pytań.";
       onError(errorMsg);
     } finally {
       setAiLoading(false);
@@ -48,7 +50,7 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
   const handleOpenModal = (e) => {
     e.preventDefault();
     if (!text.trim() || text.trim().length < 50) {
-      onError("Wklej najpierw tekst źródłowy (minimum 50 znaków), aby AI mogło działać.");
+      onError("Wklej najpierw tekst źródłowy.");
       return;
     }
     onError(null);
@@ -66,7 +68,7 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
       <button
         onClick={handleOpenModal}
         className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-semibold transition-all text-sm bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
-        title="Użyj AI, aby wygenerować pytania z tekstu"
+        title="Użyj AI"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
@@ -76,40 +78,68 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm animate-fade-in">
-          <div className="w-[90%] max-w-[500px] p-8 z-[1001] bg-background-elevated shadow-md rounded-lg border border-border">
+          <div className="w-[90%] max-w-[600px] p-8 z-[1001] bg-background-elevated shadow-md rounded-lg border border-border">
 
-            <h3 className="text-xl font-semibold mb-6">Konfiguracja Generatora AI</h3>
+            <h3 className="text-2xl font-semibold mb-6">Generator AI - Konfiguracja</h3>
 
-            <p className="text-text-secondary mb-4 text-sm">
-              Podaj, ile pytań otwartych i zamkniętych ma wygenerować AI. Suma musi wynosić co najmniej 15.
+            <p className="text-text-secondary mb-6 text-sm">
+              Użyj suwaków, aby dostosować liczbę pytań. Suma musi wynosić {MIN_TOTAL}-{MAX_TOTAL}.
             </p>
 
-            <div className="mb-6">
-              <label className="block font-semibold text-text-primary mb-2">Liczba pytań OTWARTYCH</label>
+            {/* Pytania Otwarte */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-3">
+                <label className="font-semibold text-text-primary">Pytania Otwarte</label>
+                <div className="px-4 py-2 bg-gradient-to-r from-primary to-primary-light rounded-md font-bold text-xl text-white min-w-[60px] text-center">
+                  {openCount}
+                </div>
+              </div>
               <input
-                type="number"
-                className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                type="range"
+                min="0"
+                max={MAX_TOTAL - choiceCount}
+                step="1"
                 value={openCount}
-                onChange={(e) => setOpenCount(Math.max(0, parseInt(e.target.value)))}
-                min="0"
+                onChange={(e) => setOpenCount(parseInt(e.target.value))}
+                className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(openCount / MAX_TOTAL) * 100}%, var(--border) ${(openCount / MAX_TOTAL) * 100}%, var(--border) 100%)`
+                }}
               />
             </div>
 
-            <div className="mb-6">
-              <label className="block font-semibold text-text-primary mb-2">Liczba pytań ZAMKNIĘTYCH</label>
+            {/* Pytania Zamknięte */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-3">
+                <label className="font-semibold text-text-primary">Pytania Zamknięte</label>
+                <div className="px-4 py-2 bg-gradient-to-r from-secondary to-purple-400 rounded-md font-bold text-xl text-white min-w-[60px] text-center">
+                  {choiceCount}
+                </div>
+              </div>
               <input
-                type="number"
-                className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                value={choiceCount}
-                onChange={(e) => setChoiceCount(Math.max(0, parseInt(e.target.value)))}
+                type="range"
                 min="0"
+                max={MAX_TOTAL - openCount}
+                step="1"
+                value={choiceCount}
+                onChange={(e) => setChoiceCount(parseInt(e.target.value))}
+                className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${(choiceCount / MAX_TOTAL) * 100}%, var(--border) ${(choiceCount / MAX_TOTAL) * 100}%, var(--border) 100%)`
+                }}
               />
             </div>
 
-            <div className="text-center text-lg text-text-primary mb-6 p-3 bg-background-main rounded-md">
-              Suma: <strong className="text-primary-light">{openCount + choiceCount}</strong> (min. 15)
+            {/* Podsumowanie */}
+            <div className={`text-center text-lg font-semibold mb-6 p-4 rounded-md ${
+              totalCount >= MIN_TOTAL && totalCount <= MAX_TOTAL 
+                ? 'bg-success/10 text-success border-2 border-success' 
+                : 'bg-danger/10 text-danger border-2 border-danger'
+            }`}>
+              Suma: {totalCount} / {MIN_TOTAL}-{MAX_TOTAL}
             </div>
 
+            {/* Przyciski */}
             <div className="flex justify-between gap-4">
               <button
                 onClick={handleCloseModal}
@@ -121,7 +151,7 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               <button
                 onClick={handleGenerateAiQuestions}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light disabled:opacity-50"
-                disabled={aiLoading || (openCount + choiceCount < 15)}
+                disabled={aiLoading || totalCount < MIN_TOTAL || totalCount > MAX_TOTAL}
               >
                 {aiLoading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current mx-auto"></div>

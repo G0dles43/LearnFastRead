@@ -9,38 +9,73 @@ const wpmToMs = (wpm) => Math.round(60000 / wpm);
 
 const CALIBRATION_TEXT_ID = 18;
 const WPM_STEP = 5;
+const DEFAULT_MAX_WPM = 1500; // Używane tylko jako fallback
 
 export default function CalibrationSession() {
   const [words, setWords] = useState([]);
   const [index, setIndex] = useState(0);
-  const [currentWpm, setCurrentWpm] = useState(250);
+  const [currentWpm, setCurrentWpm] = useState(250); // Zostanie nadpisane po załadowaniu
   const [isLoading, setIsLoading] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  
+  // NOWOŚĆ: Stan do przechowywania maksymalnego limitu WPM użytkownika
+  const [maxWpm, setMaxWpm] = useState(DEFAULT_MAX_WPM);
 
   const timerRef = useRef(null);
   const navigate = useNavigate();
   const token = localStorage.getItem("access");
   const speedMsRef = useRef(wpmToMs(currentWpm));
 
+  // ZMIANA: Ten useEffect wczytuje teraz zarówno tekst, jak i ustawienia użytkownika
   useEffect(() => {
     if (!token) {
       navigate('/login');
       return;
     }
-    axios.get(`http://127.0.0.1:8000/api/exercises/${CALIBRATION_TEXT_ID}/`, {
+
+    const fetchText = axios.get(`http://127.0.0.1:8000/api/exercises/${CALIBRATION_TEXT_ID}/`, {
       headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        const cleanText = res.data.text
+    });
+
+    // NOWOŚĆ: Pobieramy ustawienia użytkownika, aby poznać jego limit WPM
+    const fetchSettings = axios.get("http://127.0.0.1:8000/api/user/settings/", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    Promise.all([fetchText, fetchSettings])
+      .then(([textRes, settingsRes]) => {
+        // 1. Przetwarzanie tekstu (jak wcześniej)
+        const cleanText = textRes.data.text
           .replace(/<[^>]+>|\([^)]*\)|[\[\]{};:,<>/\\|_\-+=]/g, "")
           .replace(/\s+/g, " ")
           .trim();
         setWords(cleanText.split(/\s+/));
+
+        // 2. NOWOŚĆ: Przetwarzanie ustawień
+        const userSettings = settingsRes.data;
+        const userMaxWpm = userSettings.max_wpm_limit || DEFAULT_MAX_WPM;
+        const savedSpeedMs = userSettings.speed;
+        
+        // Ustawiamy maksymalny limit WPM
+        setMaxWpm(userMaxWpm);
+
+        // Ustawiamy początkowe WPM na podstawie zapisanego tempa, ale nie wyższe niż limit
+        const savedWpm = savedSpeedMs ? msToWpm(savedSpeedMs) : 250;
+        const initialWpm = Math.min(savedWpm, userMaxWpm); 
+
+        setCurrentWpm(initialWpm);
+        speedMsRef.current = wpmToMs(initialWpm);
+
+        // Dopiero teraz kończymy ładowanie
         setIsLoading(false);
       })
       .catch(err => {
-        console.error("Błąd ładowania tekstu kalibracyjnego:", err);
-        alert("Nie można załadować tekstu kalibracyjnego. Upewnij się, że ćwiczenie o ID=" + CALIBRATION_TEXT_ID + " istnieje.");
+        console.error("Błąd ładowania danych kalibracyjnych (tekst lub ustawienia):", err);
+        if (err.response && err.response.status === 404) {
+             alert("Nie można załadować tekstu kalibracyjnego. Upewnij się, że ćwiczenie o ID=" + CALIBRATION_TEXT_ID + " istnieje.");
+        } else {
+            alert("Nie można załadować danych kalibracyjnych. Sprawdź konsolę.");
+        }
         navigate('/dashboard');
       });
   }, [token, navigate]);
@@ -72,15 +107,17 @@ export default function CalibrationSession() {
     timerRef.current = setTimeout(step, initialDelay);
 
     return () => clearTimeout(timerRef.current);
-  }, [words, isLoading, isFinished, index]);
+  }, [words, isLoading, isFinished, index]); // Usunięto 'currentWpm' i 'speedMsRef.current' z zależności, aby uniknąć restartu timera przy każdej zmianie prędkości
 
+  // ZMIANA: `changeSpeed` teraz używa `maxWpm` ze stanu zamiast '1500'
   const changeSpeed = useCallback((deltaWpm) => {
     setCurrentWpm(prevWpm => {
-      const newWpm = Math.max(50, Math.min(1500, prevWpm + deltaWpm));
+      // Używamy `maxWpm` ze stanu jako górnej granicy
+      const newWpm = Math.max(50, Math.min(maxWpm, prevWpm + deltaWpm));
       speedMsRef.current = wpmToMs(newWpm);
       return newWpm;
     });
-  }, []);
+  }, [maxWpm]); // NOWOŚĆ: Dodano `maxWpm` do zależności `useCallback`
 
   const increaseSpeed = () => changeSpeed(WPM_STEP);
   const decreaseSpeed = () => changeSpeed(-WPM_STEP);
@@ -96,7 +133,7 @@ export default function CalibrationSession() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFinished, increaseSpeed, decreaseSpeed]);
+  }, [isFinished, increaseSpeed, decreaseSpeed]); // `increaseSpeed` i `decreaseSpeed` są teraz stabilne dzięki `useCallback`
 
   const handleFinish = () => {
     clearTimeout(timerRef.current);
@@ -104,6 +141,8 @@ export default function CalibrationSession() {
   };
 
   const handleSaveSpeed = () => {
+    // Nie musimy tu dodatkowo sprawdzać `maxWpm`,
+    // ponieważ `currentWpm` już jest ograniczone przez `changeSpeed`.
     const speedMsToSend = wpmToMs(currentWpm);
     axios.patch("http://127.0.0.1:8000/api/user/settings/",
       { speed: speedMsToSend },
@@ -121,7 +160,8 @@ export default function CalibrationSession() {
       <div className="min-h-screen bg-background-main text-text-primary flex items-center justify-center p-4 md:p-8">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
-          <span className="text-xl text-text-secondary">Ładowanie tekstu kalibracyjnego...</span>
+          {/* ZMIANA: Lepszy komunikat ładowania */}
+          <span className="text-xl text-text-secondary">Ładowanie danych kalibracyjnych...</span>
         </div>
       </div>
     );
@@ -164,6 +204,10 @@ export default function CalibrationSession() {
                     <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                     <div className="w-2 h-2 bg-secondary rounded-full animate-pulse [animation-delay:0.2s]" />
                     <div className="w-2 h-2 bg-accent rounded-full animate-pulse [animation-delay:0.4s]" />
+                  </div>
+                  {/* NOWOŚĆ: Wyświetlamy limit WPM użytkownika */}
+                  <div className="text-text-muted text-xs uppercase tracking-wider mt-2">
+                    Twój limit: {maxWpm} WPM
                   </div>
                 </div>
 

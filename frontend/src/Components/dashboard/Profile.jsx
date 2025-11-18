@@ -10,9 +10,7 @@ export default function Profile({ api }) {
 
   const [originalData, setOriginalData] = useState({ username: '', email: '', has_usable_password: false });
   const [username, setUsername] = useState('');
-  const [avatarFile, setAvatarFile] = useState(null);
-
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
@@ -37,9 +35,6 @@ export default function Profile({ api }) {
       });
       setUsername(res.data.username);
 
-      const avatarUrl = API_BASE_URL + res.data.avatar + '?v=' + new Date().getTime();
-      setAvatarPreview(avatarUrl);
-
     } catch (err) {
       console.error("Błąd pobierania danych użytkownika:", err);
       setError("Nie udało się pobrać danych profilu.");
@@ -57,17 +52,7 @@ export default function Profile({ api }) {
     fetchUserData();
   }, [token, navigate, fetchUserData]);
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  
 
   const handleUserSubmit = async (e) => {
     e.preventDefault();
@@ -83,10 +68,6 @@ export default function Profile({ api }) {
       dataChanged = true;
     }
 
-    if (avatarFile) {
-      formData.append('avatar', avatarFile);
-      dataChanged = true;
-    }
 
     if (!dataChanged) {
       setUserSuccess('Nie wprowadzono żadnych zmian.');
@@ -103,10 +84,6 @@ export default function Profile({ api }) {
 
       setUserSuccess('Profil zaktualizowany!');
 
-      setAvatarFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
       await fetchUserData();
 
     } catch (err) {
@@ -218,29 +195,6 @@ export default function Profile({ api }) {
             )}
 
             <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
-              <div className="flex flex-col items-center">
-                <img
-                  src={avatarPreview || `${API_BASE_URL}/media/avatars/default.png`}
-                  alt="Avatar"
-                  className="w-32 h-32 rounded-full object-cover border-4 border-border-light mb-4"
-                  onError={(e) => { e.target.src = `${API_BASE_URL}/media/avatars/default.png` }}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  ref={fileInputRef}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all bg-background-surface text-text-primary border border-border-light hover:bg-background-surface-hover hover:border-primary"
-                  onClick={() => fileInputRef.current.click()}
-                >
-                  Zmień awatar
-                </button>
-              </div>
-
               <div className="flex-1 w-full">
                 <div className="mb-6">
                   <label className="block font-semibold text-text-primary mb-2">Nazwa użytkownika</label>
@@ -252,19 +206,10 @@ export default function Profile({ api }) {
                     className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                     required
                   />
+                  <span className="block mt-2 text-sm text-text-muted">Zmiana nazwy użytkownika = zmiana loginu</span>
+
                 </div>
-                <div>
-                  <label className="block font-semibold text-text-primary mb-2">Adres e-mail (Tylko do odczytu)</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={originalData.email}
-                    className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 disabled:bg-background-surface"
-                    readOnly
-                    disabled
-                  />
-                  <span className="block mt-2 text-sm text-text-muted">E-mail nie może być zmieniony po rejestracji.</span>
-                </div>
+                
               </div>
             </div>
 

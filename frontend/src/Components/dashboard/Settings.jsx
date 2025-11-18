@@ -40,14 +40,24 @@ export default function Settings({ api }) {
     api
       .get("user/settings/")
       .then((res) => {
+        const limit = res.data.max_wpm_limit || 350;
+        setMaxWpmLimit(limit);
+
         const speedMs = res.data.speed;
-        setWpm(msToWpm(speedMs));
+        
+        let calculatedWpm = msToWpm(speedMs);
+
+        if (calculatedWpm > limit) {
+            calculatedWpm = limit;
+        }
+
+        setWpm(calculatedWpm);
+        
         setIsMuted(res.data.muted);
         setMode(res.data.mode || 'rsvp');
         setHighlightWidth(Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, res.data.highlight_width || 600)));
         setHighlightHeight(Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, res.data.highlight_height || 300)));
         setChunkSize(res.data.chunk_size || 3);
-        setMaxWpmLimit(res.data.max_wpm_limit || 350);
       })
       .catch((err) => {
         console.error("Błąd pobierania ustawień:", err);
@@ -234,13 +244,17 @@ export default function Settings({ api }) {
                 min="100"
                 max={maxWpmLimit}
                 step="10"
-                value={wpm}
-                onChange={(e) => setWpm(parseInt(e.target.value))}
+                value={Math.min(wpm, maxWpmLimit)}  
+                onChange={(e) => {
+                  const newValue = parseInt(e.target.value);
+                  setWpm(Math.min(newValue, maxWpmLimit));  {/* POPRAWKA: Nie pozwól przekroczyć */}
+                }}
                 className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) ${((wpm - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) 100%)`
+                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${((Math.min(wpm, maxWpmLimit) - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) ${((Math.min(wpm, maxWpmLimit) - 100) / (maxWpmLimit - 100)) * 100}%, var(--border) 100%)`
                 }}
               />
+
               <div className="flex justify-between text-text-secondary text-sm mt-3">
                 <span>100 WPM</span>
                 <span className="text-text-muted">Opóźnienie: {wpmToMs(wpm)}ms / słowo</span>

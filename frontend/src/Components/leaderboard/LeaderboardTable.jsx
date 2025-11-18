@@ -64,14 +64,6 @@ export default function LeaderboardTable({ users, onFollowToggle, followingIds, 
               </div>
 
               <div className="flex items-center gap-3">
-                <img
-                  src={user.avatar_url || `${API_BASE_URL}/media/avatars/default.png`}
-                  alt={`${user.username} avatar`}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-border"
-                  onError={(e) => {
-                    e.target.src = `${API_BASE_URL}/media/avatars/default.png`
-                  }}
-                />
                 <div className="flex flex-col">
                   <span className="text-lg font-semibold text-text-primary">{user.username}</span>
                   {user.id === currentUserId && (

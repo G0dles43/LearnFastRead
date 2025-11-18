@@ -10,12 +10,6 @@ from django.contrib.contenttypes.models import ContentType
 from .wpm_milestones import DEFAULT_WPM_LIMIT, get_next_wpm_limit, MIN_PASS_ACCURACY
 
 class CustomUser(AbstractUser):
-    avatar = models.ImageField(
-    upload_to='media/avatars/', 
-    null=True, 
-    blank=True, 
-    default='media/avatars/default.png'
-)
 
     speed = models.IntegerField(default=200)
 
@@ -54,6 +48,8 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username or self.email or f"User {self.id}"
 
+
+
 class ReadingExercise(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
@@ -80,6 +76,28 @@ class ReadingExercise(models.Model):
     def save(self, *args, **kwargs):
         self.word_count = len(self.text.split()) if self.text else 0
         super().save(*args, **kwargs)
+
+class DailyChallenge(models.Model):
+    """
+    Model przechowujący wyzwanie dnia.
+    Jedno wyzwanie = jeden dzień.
+    """
+    date = models.DateField(unique=True, help_text="Data wyzwania (YYYY-MM-DD)")
+    exercise = models.ForeignKey(
+        ReadingExercise, 
+        on_delete=models.CASCADE, 
+        limit_choices_to={'is_ranked': True, 'is_public': True},
+        help_text="Ćwiczenie rankingowe na ten dzień"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name = "Wyzwanie Dnia"
+        verbose_name_plural = "Wyzwania Dnia"
+
+    def __str__(self):
+        return f"Wyzwanie na {self.date}: {self.exercise.title}"
 
 class Question(models.Model):
     QUESTION_TYPES = (

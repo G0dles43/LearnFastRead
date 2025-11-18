@@ -29,16 +29,26 @@ export default function NotificationBell({ api }) {
 
   const playNotificationSound = () => {
     try {
-      if (audioRef.current) {
-        audioRef.current.volume = 0.5;
-        audioRef.current.currentTime = 0;
-        const playPromise = audioRef.current.play();
+      if (!audioRef.current) {
+        console.warn("Audio ref nie istnieje");
+        return;
+      }
 
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.warn("Autoplay zablokowany przez przeglądarkę:", err);
+      // POPRAWKA: Resetuj źródło i załaduj na nowo
+      audioRef.current.load();
+      audioRef.current.volume = 0.5;
+      audioRef.current.currentTime = 0;
+      
+      const playPromise = audioRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("Dźwięk powiadomienia odtworzony");
+          })
+          .catch(err => {
+            console.warn("Autoplay zablokowany:", err);
           });
-        }
       }
     } catch (err) {
       console.error("Błąd odtwarzania dźwięku:", err);
@@ -160,14 +170,6 @@ export default function NotificationBell({ api }) {
                   key={notif.id}
                   className={`flex items-start gap-3 p-4 border-b border-border transition-colors ${!notif.read ? 'bg-primary/10' : 'hover:bg-background-surface-hover'}`}
                 >
-                  {notif.actor && (
-                    <img
-                      src={API_BASE_URL + (notif.actor.avatar || '/media/avatars/default.png')}
-                      alt={notif.actor.username}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                      onError={(e) => { e.target.src = `${API_BASE_URL}/media/avatars/default.png` }}
-                    />
-                  )}
                   <div className="flex-1">
                     <p className="text-sm text-text-secondary">
                       {notif.actor && (

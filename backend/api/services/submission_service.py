@@ -1,9 +1,7 @@
-# api/services/submission_service.py
 from ..models import UserProgress, CustomUser, ReadingExercise, Notification
 from . import ranking_logic, streak_logic, stats_logic, achievement_logic, wpm_logic
 from django.db import transaction
 
-# Stwórz klasę do zwracania wyniku, będzie czyściej
 class SubmissionResult:
     def __init__(self, progress: UserProgress, new_achievements=None, new_wpm_limit=None):
         self.progress = progress
@@ -11,7 +9,6 @@ class SubmissionResult:
         self.new_wpm_limit = new_wpm_limit
     
     def to_dict(self):
-        # To zwrócimy w Response
         return {
             'wpm': self.progress.wpm,
             'accuracy': self.progress.accuracy,
@@ -23,51 +20,51 @@ class SubmissionResult:
         }
 
 @transaction.atomic
-def process_exercise_submission(user: CustomUser, exercise: ReadingExercise, wpm: int, accuracy: float) -> SubmissionResult:
+def process_exercise_submission(user: CustomUser, exercise: ReadingExercise, reading_time_ms: int, accuracy: float) -> SubmissionResult:
     """
-    Główna funkcja biznesowa do obsługi wyniku ćwiczenia.
-    Zastępuje całą logikę z UserProgress.save().
+    POPRAWKA: Używamy reading_time_ms bezpośrednio do obliczenia WPM
     """
     
-    # 1. Stwórz "głupi" obiekt
+    # Oblicz WPM na podstawie FAKTYCZNEGO czasu czytania
+    minutes = reading_time_ms / 60000.0
+    if minutes == 0:
+        wpm = 0
+    else:
+        wpm = round(exercise.word_count / minutes)
+    
+    # Stwórz obiekt z POPRAWNYM WPM
     progress = UserProgress(
         user=user,
         exercise=exercise,
-        wpm=wpm,
+        wpm=wpm,  # To jest teraz FAKTYCZNE WPM
         accuracy=accuracy
     )
     
-    # 2. Użyj serwisów, aby USTAWIAĆ dane na obiekcie (bez zapisu)
+    # Określ eligibility
     old_ranked_attempt = ranking_logic.determine_ranking_eligibility(progress)
     ranking_logic.calculate_final_points(progress)
     
-    # 3. ZAPISZ postęp (tylko raz!)
+    # Zapisz
     progress.save()
     
-    # 4. Deaktywuj starą próbę, jeśli trzeba
+    # Deaktywuj starą próbę
     if old_ranked_attempt:
         old_ranked_attempt.counted_for_ranking = False
         old_ranked_attempt.save(update_fields=['counted_for_ranking'])
         
-    # 5. Uruchom logikę, która potrzebuje zapisanego obiektu 'progress'
-    # i AKTUALIZUJE samego użytkownika
-    
-    # Aktualizuj streak (dane są na obiekcie 'user')
+    # Streak
     streak_logic.update_user_streak(user) 
     
-    # Sprawdź WPM (dane są na 'user' i 'progress')
+    # WPM milestone
     new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
     
-    # Sprawdź osiągnięcia (dane są na 'user' i 'progress')
+    # Achievements
     new_achievements = achievement_logic.check_for_new_achievements(user, progress)
     
-    # 6. Na samym końcu przelicz statystyki i ZAPISZ użytkownika
-    # Ta funkcja musi być ostatnia i sama robi .save() na userze
+    # Stats
     if progress.counted_for_ranking:
         stats_logic.update_user_stats(user)
     else:
-        # Zapisz tylko zmiany ze streaka (jeśli nie było liczone do rankingu)
         user.save(update_fields=['current_streak', 'max_streak', 'last_streak_date'])
 
-    # 7. Zwróć wynik
     return SubmissionResult(progress, new_achievements, new_wpm_limit)

@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render
 from rest_framework import generics, permissions
 from .permissions import IsOwnerOrAdminOrReadOnly
@@ -13,16 +14,16 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import MyTokenObtainPairSerializer
 from .services.challenge_service import get_today_challenge
 from .serializers import (
-    NotificationSerializer, FriendActivitySerializer, BasicUserSerializer, 
-    ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer, 
-    QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer, 
+    NotificationSerializer, FriendActivitySerializer, BasicUserSerializer,
+    ExerciseCollectionSerializer, UserStatusSerializer, UserAchievementSerializer,
+    QuestionSerializer, ReadingExerciseSerializer, UserSettingsSerializer,
     UserProgressSerializer
 )
 import requests
 import re
 import os
 import json
-import random 
+import random
 import google.generativeai as genai
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -34,9 +35,13 @@ from django.db.models.functions import Rank
 from .models import CustomUser
 from django.utils import timezone
 from datetime import timedelta
-from .services import submission_service 
+from .services import submission_service
 from .services.submission_service import SubmissionResult
 from django.shortcuts import get_object_or_404
+import threading # <-- Import dla Fixa #7 (Gemini)
+
+# Ustaw logger
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -45,6 +50,10 @@ try:
     gemini_model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
     gemini_model = None
+
+# Globalna blokada dla Gemini API (Fix #7)
+gemini_api_lock = threading.Lock()
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -73,7 +82,7 @@ class ReadingExerciseList(generics.ListAPIView):
 
         show_favorites = self.request.query_params.get('favorites')
         if show_favorites == 'true':
-            queryset = queryset.filter(favorited_by=user) 
+            queryset = queryset.filter(favorited_by=user)
 
         show_ranked = self.request.query_params.get('ranked')
         if show_ranked == 'true':
@@ -121,7 +130,7 @@ class ReadingExerciseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 class SubmitProgress(APIView):
     permission_classes = [IsAuthenticated]
 
-    MAX_HUMAN_WPM = 1500 
+    MAX_HUMAN_WPM = 1500
 
     def post(self, request, *args, **kwargs):
         data = request.data
@@ -130,7 +139,7 @@ class SubmitProgress(APIView):
         try:
             exercise_id = data.get('exercise')
             reading_time_ms = data.get('reading_time_ms')
-            answers = data.get('answers') 
+            answers = data.get('answers')
 
             if not all([exercise_id, reading_time_ms is not None]):
                 return Response(
@@ -140,25 +149,25 @@ class SubmitProgress(APIView):
 
             exercise = ReadingExercise.objects.get(pk=exercise_id)
             
-            if reading_time_ms <= 0: 
+            if reading_time_ms <= 0:
                 return Response(
-                    {"error": "Nieprawidłowy czas czytania"}, 
+                    {"error": "Nieprawidłowy czas czytania"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
             word_count = exercise.word_count
-            if word_count > 0: 
+            if word_count > 0:
                 min_time_per_word_ms = 60000.0 / self.MAX_HUMAN_WPM
                 min_possible_time_ms = word_count * min_time_per_word_ms
                 
                 if reading_time_ms < (min_possible_time_ms * 0.95):
-                    print(f"ANTI-CHEAT: User {user.username} (ID: {user.id}) przesłał niemożliwy czas!")
-                    print(f"Tekst: {word_count} słów, Czas: {reading_time_ms}ms, Wymagane min: {min_possible_time_ms}ms")
+                    logger.warning(f"ANTI-CHEAT: User {user.username} (ID: {user.id}) przesłał niemożliwy czas!")
+                    logger.warning(f"Tekst: {word_count} słów, Czas: {reading_time_ms}ms, Wymagane min: {min_possible_time_ms}ms")
                     
                     submission_service.process_exercise_submission(
                         user=user,
                         exercise=exercise,
-                        wpm=9999, 
+                        reading_time_ms=9999999, # Użyj bardzo dużego czasu, aby WPM było 0
                         accuracy=0
                     )
                     
@@ -167,14 +176,7 @@ class SubmitProgress(APIView):
                         status=status.HTTP_403_FORBIDDEN
                     )
             
-            minutes = reading_time_ms / 60000.0
-            
-            if minutes == 0:
-                wpm = 0
-            else:
-                wpm = round(exercise.word_count / minutes)
-
-            accuracy = 0.0 
+            accuracy = 0.0
 
             if exercise.is_ranked:
                 if answers is None:
@@ -183,9 +185,13 @@ class SubmitProgress(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                correct_questions = Question.objects.filter(exercise=exercise)
+                answer_ids = answers.keys()
+                correct_questions = Question.objects.filter(exercise=exercise, id__in=answer_ids)
+                
                 total_questions_count = correct_questions.count()
                 
+                logger.info(f"Użytkownik odpowiedział na {total_questions_count} pytań.")
+
                 if total_questions_count > 0:
                     correct_answers_count = 0
                     for question in correct_questions:
@@ -196,16 +202,19 @@ class SubmitProgress(APIView):
                                 correct_answers_count += 1
                     
                     accuracy = round((correct_answers_count / total_questions_count) * 100, 2)
+                else:
+                    accuracy = 0.0
             
-            
+            # Przekazujemy FAKTYCZNY czas czytania do serwisu
             result: SubmissionResult = submission_service.process_exercise_submission(
                 user=user,
                 exercise=exercise,
-                wpm=wpm,
+                reading_time_ms=reading_time_ms,
                 accuracy=accuracy
             )
             
-            response_data = result.to_dict() 
+            response_data = result.to_dict()
+            logger.info(f"Zwracane dane: {response_data}") # Ostatni log
 
             if exercise.is_ranked:
                 if result.progress.counted_for_ranking:
@@ -219,13 +228,13 @@ class SubmitProgress(APIView):
 
         except ReadingExercise.DoesNotExist:
             return Response(
-                {"error": "Nie znaleziono ćwiczenia"}, 
+                {"error": "Nie znaleziono ćwiczenia"},
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            print(f"Błąd w SubmitLog: {e}") 
+            logger.error(f"Błąd w SubmitLog: {e}")
             return Response(
-                {"error": "Wystąpił wewnętrzny błąd serwera."}, 
+                {"error": "Wystąpił wewnętrzny błąd serwera."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -257,7 +266,7 @@ class UserStatusView(APIView):
 
 
 class SearchExercises(APIView):
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         query = self.request.query_params.get('query', '')
@@ -270,16 +279,16 @@ class SearchExercises(APIView):
             if not 1 <= num_results <= 20:
                 num_results = 5
         except ValueError:
-            num_results = 5 
+            num_results = 5
 
         try:
             limit = int(self.request.query_params.get('limit', 300))
-            if not 100 <= limit <= 1000: 
+            if not 100 <= limit <= 1000:
                 limit = 300
         except ValueError:
             limit = 300
 
-        headers = { 'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)' } 
+        headers = { 'User-Agent': 'SpeedReadingApp/1.0 (ziomekdfd@gmail.com)' }
 
         try:
             search_url = "https://pl.wikipedia.org/w/api.php"
@@ -327,7 +336,7 @@ class SearchExercises(APIView):
 
                 results.append({
                     "title": title,
-                    "snippet": truncated_text, 
+                    "snippet": truncated_text,
                 })
 
             return Response({"results": results})
@@ -343,7 +352,7 @@ class SearchExercises(APIView):
 class ReadingExerciseDetail(generics.RetrieveAPIView):
     queryset = ReadingExercise.objects.all()
     serializer_class = ReadingExerciseSerializer
-    permission_classes = [permissions.IsAuthenticated] 
+    permission_classes = [permissions.IsAuthenticated]
 
 
 @api_view(['POST'])
@@ -396,13 +405,13 @@ class LeaderboardView(APIView):
         from django.db.models import Window
         from django.db.models.functions import Rank
         
-        ranked_users_query = CustomUser.objects.annotate(
+        ranked_users_query = CustomUser.objects.filter(
+            total_ranking_points__gt=0
+        ).annotate(
             rank=Window(
                 expression=Rank(),
                 order_by=F('total_ranking_points').desc()
             )
-        ).filter(
-            total_ranking_points__gt=0
         ).order_by('rank')
 
         leaderboard_data = []
@@ -411,14 +420,13 @@ class LeaderboardView(APIView):
                 'id': user.id,
                 'rank': user.rank,
                 'username': user.username,
-                'total_points': user.total_ranking_points, 
-                'average_wpm': round(user.average_wpm), 
-                'average_accuracy': round(user.average_accuracy, 1), 
-                'exercises_completed': user.ranking_exercises_completed, 
+                'total_points': user.total_ranking_points,
+                'average_wpm': round(user.average_wpm) if user.average_wpm else 0,
+                'average_accuracy': round(user.average_accuracy, 1) if user.average_accuracy else 0,
+                'exercises_completed': user.ranking_exercises_completed,
             })
 
         return Response({"leaderboard": leaderboard_data})
-
 
 class MyStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -428,22 +436,23 @@ class MyStatsView(APIView):
         from django.db.models import Window
         from django.db.models.functions import Rank
 
-        user_rank_data = CustomUser.objects.annotate(
+        all_users_with_rank = CustomUser.objects.filter(
+            total_ranking_points__gt=0
+        ).annotate(
             rank=Window(
                 expression=Rank(),
                 order_by=F('total_ranking_points').desc()
             )
-        ).filter(id=user.id).values('rank', 'total_ranking_points').first()
-
-        user_rank = user_rank_data['rank'] if user_rank_data else 0
+        )
         
-        if user_rank_data and user_rank_data['total_ranking_points'] == 0:
-            user_rank = "N/A"
+        user_rank_data = all_users_with_rank.filter(id=user.id).first()
+        
+        user_rank = user_rank_data.rank if user_rank_data else "N/A"
 
         recent_results_query = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True,
-            ranking_points__gt=0 
+            ranking_points__gt=0
         ).order_by('-completed_at')[:10]
 
         recent_results_data = []
@@ -458,11 +467,11 @@ class MyStatsView(APIView):
 
         stats = {
             'rank': user_rank,
-            'total_points': user.total_ranking_points, 
-            'average_wpm': round(user.average_wpm), 
-            'average_accuracy': round(user.average_accuracy, 1), 
-            'exercises_completed': user.ranking_exercises_completed, 
-            'recent_results': recent_results_data 
+            'total_points': user.total_ranking_points,
+            'average_wpm': round(user.average_wpm) if user.average_wpm else 0,
+            'average_accuracy': round(user.average_accuracy, 1) if user.average_accuracy else 0,
+            'exercises_completed': user.ranking_exercises_completed,
+            'recent_results': recent_results_data
         }
 
         return Response(stats)
@@ -494,7 +503,7 @@ class ExerciseAttemptStatusView(APIView):
         if not exercise.is_ranked:
             return Response({
                 "can_rank": False,
-                "is_training_mode": False, 
+                "is_training_mode": False,
                 "message": "To ćwiczenie nie jest rankingowe"
             })
 
@@ -554,18 +563,18 @@ class TodayChallengeView(APIView):
         is_completed = UserProgress.objects.filter(
             user=request.user,
             exercise=challenge,
-            completed_daily_challenge=True, 
+            completed_daily_challenge=True,
             completed_at__gte=today_start,
             completed_at__lte=today_end
         ).exists()
         
         serializer = ReadingExerciseSerializer(challenge, context={'request': request})
-        challenge_data = serializer.data  
+        challenge_data = serializer.data
 
         return Response({
             "challenge": challenge_data,
             "is_completed": is_completed
-        })  
+        })
     
 class UserProgressHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -574,10 +583,10 @@ class UserProgressHistoryView(APIView):
         user = request.user
         progress_history = UserProgress.objects.filter(
             user=user,
-            counted_for_ranking=True 
+            counted_for_ranking=True
         ).order_by('completed_at').values(
-            'completed_at', 
-            'wpm', 
+            'completed_at',
+            'wpm',
             'accuracy'
         )
         data = list(progress_history)
@@ -591,7 +600,7 @@ class CollectionListView(generics.ListCreateAPIView):
         user = self.request.user
         return ExerciseCollection.objects.filter(
             Q(is_public=True) | Q(created_by=user)
-        ).distinct().prefetch_related('exercises') 
+        ).distinct().prefetch_related('exercises')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -602,7 +611,7 @@ class CollectionListView(generics.ListCreateAPIView):
 class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ExerciseCollectionSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'slug' 
+    lookup_field = 'slug'
 
     def get_queryset(self):
         user = self.request.user
@@ -649,11 +658,12 @@ def generate_ai_questions(request):
             choice_count = int(request.data.get('choice_count', 5))
         except (ValueError, TypeError):
             return Response({"error": "Liczba pytań musi być liczbą całkowitą."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if total_count < 15:
-             # Zmniejszyłem limit do 5 na wszelki wypadek, jeśli chcesz testować mniejsze partie
-             if total_count < 5:
-                return Response({"error": "Minimalna liczba pytań to 5."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Poprawka limitu - teraz używamy zmiennych z Twojego pliku (Fix #8)
+        MIN_TOTAL_QUESTIONS = 15 # Lub 5, jeśli chcesz
+        
+        if total_count < MIN_TOTAL_QUESTIONS:
+            return Response({"error": f"Minimalna łączna liczba pytań to {MIN_TOTAL_QUESTIONS}."}, status=status.HTTP_400_BAD_REQUEST)
         if open_count + choice_count != total_count:
             return Response({"error": f"Suma pytań ({open_count} otwartych + {choice_count} zamkniętych) nie zgadza się z sumą całkowitą ({total_count})."}, status=status.HTTP_400_BAD_REQUEST)
         if open_count < 0 or choice_count < 0:
@@ -705,41 +715,41 @@ def generate_ai_questions(request):
         Oczekiwany JSON:
         """
 
-        response = gemini_model.generate_content(prompt)
-        ai_response_text = response.text
+        # --- POCZĄTEK POPRAWKI (FIX #7) ---
+        logger.info(f"Użytkownik {request.user.username} czeka na blokadę Gemini API...")
+        
+        with gemini_api_lock:
+            logger.info(f"Blokada Gemini API aktywna dla {request.user.username}.")
+            # Ten kod wykona się tylko dla jednego użytkownika naraz
+            response = gemini_model.generate_content(prompt)
+            ai_response_text = response.text
+            logger.info(f"Gemini API zwolnione dla {request.user.username}.")
+        # --- KONIEC POPRAWKI (FIX #7) ---
 
-        # === POCZĄTEK POPRAWKI ===
-        # Stary kod re.sub był błędny. Ten kod jest bezpieczniejszy:
-        # 1. Usuwa białe znaki z początku i końca
         cleaned_text = ai_response_text.strip()
         
-        # 2. Sprawdza, czy tekst zaczyna się od ```json
         if cleaned_text.startswith('```json'):
-            cleaned_text = cleaned_text[7:] # Usuwa ```json
-            cleaned_text = cleaned_text.lstrip() # Usuwa ewentualne białe znaki/linie po
+            cleaned_text = cleaned_text[7:]
+            cleaned_text = cleaned_text.lstrip()
             
-        # 3. Sprawdza, czy tekst kończy się na ```
         if cleaned_text.endswith('```'):
-            cleaned_text = cleaned_text[:-3] # Usuwa ```
-            cleaned_text = cleaned_text.rstrip() # Usuwa ewentualne białe znaki/linie przed
+            cleaned_text = cleaned_text[:-3]
+            cleaned_text = cleaned_text.rstrip()
         
-        # 4. Ostatnie czyszczenie na wszelki wypadek
         cleaned_text = cleaned_text.strip()
         
-        # === KONIEC POPRAWKI ===
-
         questions_json = json.loads(cleaned_text)
         
         if len(questions_json) != total_count:
-                print(f"OSTRZEŻENIE AI: Miało być {total_count} pytań, wygenerowano {len(questions_json)}")
+                logger.warning(f"OSTRZEŻENIE AI: Miało być {total_count} pytań, wygenerowano {len(questions_json)}")
 
         return Response(questions_json, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
-        print(f"Błąd dekodowania JSON z AI: {ai_response_text}") # Ten log jest teraz jeszcze ważniejszy
+        logger.error(f"Błąd dekodowania JSON z AI: {ai_response_text}")
         return Response({"error": "AI zwróciło niepoprawny format danych (JSONDecodeError). Spróbuj ponownie."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        print(f"Błąd generatora AI: {e}")
+        logger.error(f"Błąd generatora AI: {e}")
         return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class UserSearchView(generics.ListAPIView):
@@ -870,10 +880,10 @@ class FriendsLeaderboardView(APIView):
                 'id': user_data.id,
                 'rank': user_data.rank,
                 'username': user_data.username,
-                'total_points': user_data.total_ranking_points, 
-                'average_wpm': round(user_data.average_wpm), 
-                'average_accuracy': round(user_data.average_accuracy, 1),  
-                'exercises_completed': user_data.ranking_exercises_completed, 
+                'total_points': user_data.total_ranking_points,
+                'average_wpm': round(user_data.average_wpm),
+                'average_accuracy': round(user_data.average_accuracy, 1),
+                'exercises_completed': user_data.ranking_exercises_completed,
             })
             
         return Response({"leaderboard": leaderboard_data})
@@ -893,14 +903,14 @@ class FriendActivityFeedView(generics.ListAPIView):
             return UserProgress.objects.none()
 
         queryset = UserProgress.objects.filter(
-            counted_for_ranking=True, 
-            ranking_points__gt=0,    
-            user_id__in=following_ids 
+            counted_for_ranking=True,
+            ranking_points__gt=0,
+            user_id__in=following_ids
         ).select_related(
-            'user', 'exercise' 
+            'user', 'exercise'
         ).order_by(
             '-completed_at'
-        )[:15] 
+        )[:15]
         
         return queryset
     
@@ -925,7 +935,7 @@ class MarkAllNotificationsAsReadView(APIView):
 
     def post(self, request, *args, **kwargs):
         updated = Notification.objects.filter(
-            recipient=request.user, 
+            recipient=request.user,
             read=False
         ).update(read=True)
         

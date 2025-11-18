@@ -21,6 +21,9 @@ export default function Quiz({
 
   const timerIntervalRef = useRef(null);
   const hasSubmittedRef = useRef(false);
+  
+  // ⭐ NOWY REF - zawsze aktualny stan answers
+  const answersRef = useRef({});
 
   const navigate = useNavigate();
 
@@ -51,7 +54,7 @@ export default function Quiz({
     } finally {
       setCheatReason(reason);
     }
-  }, [api, exerciseId, readingTimeMs, hasSubmittedRef.current]);
+  }, [api, exerciseId, readingTimeMs]);
 
   const { stopListeners } = useAntiCheating(
     handleCheating,
@@ -64,6 +67,10 @@ export default function Quiz({
     stopListenersRef.current = stopListeners;
   }, [stopListeners]);
 
+  // ⭐ POPRAWKA: Synchronizuj answersRef z aktualnym stanem
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     if (resultData !== null || timerExpired || cheatingInProgress.current) {
@@ -76,7 +83,8 @@ export default function Quiz({
         if (prev <= 1) {
           clearInterval(timerIntervalRef.current);
           setTimerExpired(true);
-          handleTimeExpired();
+          // ⭐ POPRAWKA: Użyj answersRef.current zamiast answers
+          submitQuiz(answersRef.current);
           return 0;
         }
         return prev - 1;
@@ -84,10 +92,20 @@ export default function Quiz({
     }, 1000);
 
     return () => clearInterval(timerIntervalRef.current);
-  }, [resultData, timerExpired, cheatingInProgress.current]);
+  }, [resultData, timerExpired, cheatingInProgress.current]); // ⭐ USUNIĘTO 'answers' z zależności
 
   const submitQuiz = async (finalAnswers) => {
     if (isSubmitting || hasSubmittedRef.current || cheatingInProgress.current) return;
+
+    console.log("=== 🔍 DEBUG QUIZ (FRONTEND) ===");
+    console.log("1️⃣ Liczba pytań:", questions.length);
+    console.log("2️⃣ Obiekt finalAnswers:", finalAnswers);
+    console.log("3️⃣ Liczba odpowiedzi:", Object.keys(finalAnswers).length);
+    console.log("4️⃣ JSON do wysłania:", JSON.stringify({
+      exercise: exerciseId,
+      reading_time_ms: readingTimeMs,
+      answers: finalAnswers,
+    }, null, 2));
 
     stopListeners();
     hasSubmittedRef.current = true;
@@ -101,10 +119,12 @@ export default function Quiz({
         answers: finalAnswers,
       });
 
+      console.log("5️⃣ Odpowiedź z backendu:", res.data);
       setResultData(res.data);
       setTimeout(() => onFinish(), 5000);
     } catch (err) {
-      console.error("Błąd zapisu wyniku quizu", err);
+      console.error("❌ Błąd zapisu wyniku quizu:", err);
+      console.error("Szczegóły błędu:", err.response?.data);
       alert(`Błąd: ${err.response?.data?.error || "Nie udało się zapisać wyniku"}`);
       setIsSubmitting(false);
       hasSubmittedRef.current = false;
@@ -113,15 +133,17 @@ export default function Quiz({
   };
 
   const handleSubmit = () => {
-    submitQuiz(answers);
-  };
-
-  const handleTimeExpired = () => {
-    submitQuiz(answers);
+    // ⭐ POPRAWKA: Użyj answersRef.current
+    submitQuiz(answersRef.current);
   };
 
   const handleAnswerChange = (questionId, value) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
+    console.log(`📝 Zmiana odpowiedzi: Pytanie ${questionId} = "${value}"`);
+    setAnswers(prev => {
+      const updated = { ...prev, [String(questionId)]: value };
+      console.log("📦 Aktualny stan answers:", updated);
+      return updated;
+    });
   };
 
   const formatTime = (seconds) => {
@@ -194,7 +216,8 @@ export default function Quiz({
                         <button
                           key={optionIdx}
                           onClick={() => handleAnswerChange(q.id, option)}
-                          className={`block w-full p-4 text-left rounded-md border-2 transition-all font-medium ${answers[q.id] === option
+                          className={`block w-full p-4 text-left rounded-md border-2 transition-all font-medium ${
+                            answers[String(q.id)] === option 
                             ? 'bg-primary/20 border-primary text-text-primary'
                             : 'bg-background-main border-border text-text-primary hover:bg-background-surface-hover hover:border-primary-light'
                             }`}
@@ -209,7 +232,7 @@ export default function Quiz({
                       type="text"
                       className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="Twoja odpowiedź..."
-                      value={answers[q.id] || ""}
+                      value={answers[String(q.id)] || ""} 
                       onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                       disabled={isSubmitting || timerExpired}
                     />
