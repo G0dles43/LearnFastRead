@@ -6,7 +6,7 @@ services:
     container_name: speedreading_backend
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     volumes:
-      - ./backend:/app           # Mapowanie kodu (Hot Reload)
+      - ./backend:/app
     ports:
       - "8000:8000"
     environment:
@@ -14,11 +14,14 @@ services:
       - SECRET_KEY=dev-secret-key
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: build
     container_name: speedreading_frontend
+    command: ["npm", "run", "dev", "--", "--host"]
     volumes:
-      - ./frontend:/app          # Mapowanie kodu
-      - /app/node_modules        # WAŻNE: Nie nadpisuj node_modules z hosta
+      - ./frontend:/app
+      - /app/node_modules
     ports:
       - "5173:5173"
     environment:
