@@ -26,7 +26,7 @@ def check_and_update_wpm_milestone(user: CustomUser, progress: UserProgress) -> 
     # Użytkownik kwalifikuje się - sprawdź, jaki jest następny próg
     new_limit = get_next_wpm_limit(user.max_wpm_limit)
 
-    if new_limit > user.max_wpm_limit:
+    if new_limit >= user.max_wpm_limit:
         old_limit = user.max_wpm_limit
         user.max_wpm_limit = new_limit
         

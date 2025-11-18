@@ -21,6 +21,7 @@ from .serializers import (
 )
 import requests
 import re
+from .utils.ai_queue import gemini_queue
 import os
 import json
 import random
@@ -636,9 +637,12 @@ class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_ai_questions(request):
+    """
+    Generuje pytania przy użyciu AI, korzystając z bezpiecznej kolejki FIFO.
+    """
     if not gemini_model:
         return Response(
-            {"error": "Model AI nie jest dostępny lub nie został poprawnie skonfigurowany."},
+            {"error": "Model AI nie jest dostępny lub nie został poprawnie skonfigurowany (brak klucza API?)."},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
     
@@ -649,7 +653,7 @@ def generate_ai_questions(request):
         )
 
     try:
-        content = request.data.get('content')
+        content = request.data.get('content', '')
         topic = request.data.get('topic', 'Temat ogólny')
         
         try:
@@ -659,13 +663,16 @@ def generate_ai_questions(request):
         except (ValueError, TypeError):
             return Response({"error": "Liczba pytań musi być liczbą całkowitą."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Poprawka limitu - teraz używamy zmiennych z Twojego pliku (Fix #8)
-        MIN_TOTAL_QUESTIONS = 15 # Lub 5, jeśli chcesz
+        MIN_TOTAL_QUESTIONS = 15 
         
         if total_count < MIN_TOTAL_QUESTIONS:
             return Response({"error": f"Minimalna łączna liczba pytań to {MIN_TOTAL_QUESTIONS}."}, status=status.HTTP_400_BAD_REQUEST)
+        
         if open_count + choice_count != total_count:
-            return Response({"error": f"Suma pytań ({open_count} otwartych + {choice_count} zamkniętych) nie zgadza się z sumą całkowitą ({total_count})."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "error": f"Suma pytań ({open_count} otwartych + {choice_count} zamkniętych) nie zgadza się z sumą całkowitą ({total_count})."
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
         if open_count < 0 or choice_count < 0:
             return Response({"error": "Liczba pytań nie może być ujemna."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -683,74 +690,73 @@ def generate_ai_questions(request):
         ...razem {total_count} pytań z podanego materiału źródłowego.
         Pytania mają dotyczyć tematu: "{topic}".
         
-        Zawsze zwracaj odpowiedź wyłącznie jako JEDNĄ tablicę obiektów JSON, bez żadnego dodatkowego tekstu.
+        Zawsze zwracaj odpowiedź wyłącznie jako JEDNĄ tablicę obiektów JSON, bez żadnego dodatkowego tekstu (Markdown itp).
         Użyj DOKŁADNIE tych kluczy: "question_type", "text", "correct_answer", "option_1", "option_2", "option_3", "option_4".
 
         Format JSON:
         [
             {{
                 "question_type": "open",
-                "text": "Jak nazywał się pierwszy król Polski?",
-                "correct_answer": "Bolesław Chrobry",
+                "text": "Przykładowe pytanie otwarte?",
+                "correct_answer": "Krótka odpowiedź",
                 "option_1": null, "option_2": null, "option_3": null, "option_4": null
             }},
             {{
                 "question_type": "choice",
-                "text": "W którym roku odbył się chrzest Polski?",
-                "correct_answer": "966",
-                "option_1": "966", "option_2": "1000", "option_3": "1025", "option_4": "997"
-            }},
-            ...
+                "text": "Przykładowe pytanie zamknięte?",
+                "correct_answer": "Opcja 1",
+                "option_1": "Opcja 1", "option_2": "Opcja 2", "option_3": "Opcja 3", "option_4": "Opcja 4"
+            }}
         ]
 
+        Wymogi:
         - Dla pytań 'open', odpowiedzi (correct_answer) muszą być BARDZO KRÓTKIE (1-3 słowa). Pola opcji muszą być null.
-        - Dla pytań 'choice', MUSISZ podać 4 opcje (option_1 do option_4). Jedna z nich MUSI być poprawną odpowiedzią.
+        - Dla pytań 'choice', MUSISZ podać 4 opcje. Jedna z nich MUSI być identyczna z correct_answer.
         - Zachowaj kolejność: najpierw wszystkie pytania otwarte, potem wszystkie zamknięte.
 
         Oto materiał źródłowy:
         ---
         {content}
         ---
-
-        Oczekiwany JSON:
         """
 
-        # --- POCZĄTEK POPRAWKI (FIX #7) ---
-        logger.info(f"Użytkownik {request.user.username} czeka na blokadę Gemini API...")
-        
-        with gemini_api_lock:
-            logger.info(f"Blokada Gemini API aktywna dla {request.user.username}.")
-            # Ten kod wykona się tylko dla jednego użytkownika naraz
-            response = gemini_model.generate_content(prompt)
-            ai_response_text = response.text
-            logger.info(f"Gemini API zwolnione dla {request.user.username}.")
-        # --- KONIEC POPRAWKI (FIX #7) ---
+        logger.info(f"AI: Użytkownik {request.user.username} dodaje zapytanie do kolejki...")
+
+        response = gemini_queue.process_request(gemini_model.generate_content, prompt)
+
+        logger.info(f"AI: Otrzymano odpowiedź dla {request.user.username}.")
+        ai_response_text = response.text
 
         cleaned_text = ai_response_text.strip()
         
         if cleaned_text.startswith('```json'):
             cleaned_text = cleaned_text[7:]
-            cleaned_text = cleaned_text.lstrip()
-            
+        if cleaned_text.startswith('```'):
+            cleaned_text = cleaned_text[3:]
         if cleaned_text.endswith('```'):
             cleaned_text = cleaned_text[:-3]
-            cleaned_text = cleaned_text.rstrip()
-        
+            
         cleaned_text = cleaned_text.strip()
         
         questions_json = json.loads(cleaned_text)
         
         if len(questions_json) != total_count:
-                logger.warning(f"OSTRZEŻENIE AI: Miało być {total_count} pytań, wygenerowano {len(questions_json)}")
+            logger.warning(f"AI WARNING: Zaządano {total_count} pytań, otrzymano {len(questions_json)}")
 
         return Response(questions_json, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
-        logger.error(f"Błąd dekodowania JSON z AI: {ai_response_text}")
-        return Response({"error": "AI zwróciło niepoprawny format danych (JSONDecodeError). Spróbuj ponownie."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(f"AI ERROR: Błąd dekodowania JSON. Otrzymano: {ai_response_text}")
+        return Response(
+            {"error": "AI zwróciło niepoprawny format danych. Spróbuj ponownie (zmniejsz ilość pytań lub zmień tekst)."}, 
+            status=status.HTTP_502_BAD_GATEWAY
+        )
     except Exception as e:
-        logger.error(f"Błąd generatora AI: {e}")
-        return Response({"error": f"Wystąpił wewnętrzny błąd serwera: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(f"AI CRITICAL ERROR: {str(e)}")
+        return Response(
+            {"error": f"Wystąpił błąd podczas komunikacji z AI: {str(e)}"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
 class UserSearchView(generics.ListAPIView):
     serializer_class = BasicUserSerializer
