@@ -23,7 +23,7 @@ const GOOGLE_CLIENT_ID = "11078447520-dmlr36fl2dd6acetjjdosi56ba8qksn2.apps.goog
 
 const createAxiosInstance = () => {
   const api = axios.create({
-    baseURL: "http://127.0.0.1:8000/api/",
+    baseURL: "/api/",
   });
 
   api.interceptors.request.use(
@@ -51,7 +51,7 @@ const createAxiosInstance = () => {
 
         if (refreshToken) {
           try {
-            const response = await axios.post('http://127.0.0.1:8000/api/token/refresh/', {
+            const response = await axios.post('/api/token/refresh/', {
               refresh: refreshToken
             });
 
@@ -93,7 +93,7 @@ function App() {
     const errorInterceptor = apiInstance.interceptors.response.use(
       response => response,
       error => {
-        if ((error.config.url === 'http://127.0.0.1:8000/api/token/refresh/' && error.response?.status === 401) ||
+        if ((error.config.url === '/api/token/refresh/' && error.response?.status === 401) ||
             (error.response?.status === 401 && !localStorage.getItem('refresh'))) {
           console.log("Interceptor globalny: Wylogowanie użytkownika.");
           localStorage.removeItem("access");

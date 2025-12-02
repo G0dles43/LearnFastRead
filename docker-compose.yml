@@ -3,28 +3,21 @@ version: '3.8'
 services:
   backend:
     build: ./backend
-    container_name: speedreading_backend
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    container_name: prod_backend
+    restart: always
+    command: sh -c "python manage.py migrate && python manage.py collectstatic --noinput && exec gunicorn --bind 0.0.0.0:8080 --workers 3 backend.wsgi:application"
+    env_file:
+      - .env.prod
     volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=1
-      - SECRET_KEY=dev-secret-key
+      - static_volume:/app/staticfiles
 
   frontend:
-    build:
-      context: ./frontend
-      target: build
-    container_name: speedreading_frontend
-    command: ["npm", "run", "dev", "--", "--host"]
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    build: ./frontend
+    container_name: prod_frontend
+    restart: always
     ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    depends_on:
+      - "80:80"  
       - backend
+
+volumes:
+  static_volume:

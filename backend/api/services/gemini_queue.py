@@ -22,7 +22,6 @@ class GeminiQueue:
         future = asyncio.Future()
         await self._queue.put((func, args, kwargs, future))
         
-        # Jeśli nie ma aktywnego przetwarzania, uruchom
         if not self._processing:
             asyncio.create_task(self._process_queue())
         
@@ -42,7 +41,6 @@ class GeminiQueue:
                 func, args, kwargs, future = await self._queue.get()
                 
                 try:
-                    # Wykonaj funkcję synchronicznie (Gemini SDK jest sync)
                     result = await asyncio.get_event_loop().run_in_executor(
                         None, 
                         lambda: func(*args, **kwargs)
@@ -54,10 +52,8 @@ class GeminiQueue:
                 
                 self._queue.task_done()
                 
-                # Odczekaj 2 sekundy przed następnym zapytaniem
                 await asyncio.sleep(2)
         finally:
             self._processing = False
 
-# Globalna instancja
 gemini_queue = GeminiQueue()

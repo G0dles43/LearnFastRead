@@ -1,10 +1,8 @@
-# api/services/ranking_logic.py
 from django.utils import timezone
 from datetime import timedelta
 from ..models import UserProgress
-from ..services.challenge_service import get_today_challenge # Zamiast importować z services w modelu
+from ..services.challenge_service import get_today_challenge 
 
-# Wytnij i wklej z modelu UserProgress
 def _calculate_base_ranking_points(progress: UserProgress) -> int:
     """ Oblicza BAZOWE punkty rankingowe. """
     if progress.accuracy < 60:
@@ -24,7 +22,6 @@ def _calculate_base_ranking_points(progress: UserProgress) -> int:
     points = progress.wpm * (progress.accuracy / 100) * length_multiplier
     return int(points)
 
-# Wytnij i wklej z modelu UserProgress
 def _can_resubmit_for_ranking(last_ranked_attempt: UserProgress) -> bool:
     """Sprawdza czy użytkownik może ponownie wysłać wynik do rankingu (po 30 dniach)"""
     if not last_ranked_attempt:
@@ -74,7 +71,6 @@ def determine_ranking_eligibility(progress: UserProgress):
         progress.counted_for_ranking = True
         return None
 
-# Ta funkcja zastępuje _calculate_points_with_bonus
 def calculate_final_points(progress: UserProgress):
     """
     Oblicza punkty z ewentualnym bonusem za daily challenge.

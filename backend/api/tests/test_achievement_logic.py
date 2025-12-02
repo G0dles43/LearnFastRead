@@ -1,10 +1,7 @@
-# api/tests/test_achievement_logic.py
-
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from ..models import CustomUser, ReadingExercise, UserProgress, Achievement, UserAchievement
 
-# Importujemy logikę do testowania
 from ..services import achievement_logic
 
 CustomUser = get_user_model()
@@ -18,12 +15,9 @@ class AchievementLogicTests(TestCase):
         """
         self.user = CustomUser.objects.create_user(username="testuser", email="test@test.com")
         
-        # Tworzymy ćwiczenia
-        self.exercise_normal = ReadingExercise.objects.create(title="Normalny Tekst", text="słowo " * 400, is_ranked=True) # 400 słów
-        self.exercise_long = ReadingExercise.objects.create(title="Długi Tekst", text="słowo " * 900, is_ranked=True) # 900 słów
+        self.exercise_normal = ReadingExercise.objects.create(title="Normalny Tekst", text="słowo " * 400, is_ranked=True) 
+        self.exercise_long = ReadingExercise.objects.create(title="Długi Tekst", text="słowo " * 900, is_ranked=True) 
         
-        # Musimy stworzyć obiekty Achievement w testowej bazie danych
-        # Slugi muszą DOKŁADNIE pasować do tych w kodzie serwisu.
         Achievement.objects.create(slug="wpm_300", title="WPM 300")
         Achievement.objects.create(slug="wpm_800", title="WPM 800")
         Achievement.objects.create(slug="accuracy_100", title="Perfekcjonista")

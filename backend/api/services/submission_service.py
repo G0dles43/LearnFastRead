@@ -25,43 +25,34 @@ def process_exercise_submission(user: CustomUser, exercise: ReadingExercise, rea
     POPRAWKA: Używamy reading_time_ms bezpośrednio do obliczenia WPM
     """
     
-    # Oblicz WPM na podstawie FAKTYCZNEGO czasu czytania
     minutes = reading_time_ms / 60000.0
     if minutes == 0:
         wpm = 0
     else:
         wpm = round(exercise.word_count / minutes)
     
-    # Stwórz obiekt z POPRAWNYM WPM
     progress = UserProgress(
         user=user,
         exercise=exercise,
-        wpm=wpm,  # To jest teraz FAKTYCZNE WPM
+        wpm=wpm,  
         accuracy=accuracy
     )
     
-    # Określ eligibility
     old_ranked_attempt = ranking_logic.determine_ranking_eligibility(progress)
     ranking_logic.calculate_final_points(progress)
     
-    # Zapisz
     progress.save()
     
-    # Deaktywuj starą próbę
     if old_ranked_attempt:
         old_ranked_attempt.counted_for_ranking = False
         old_ranked_attempt.save(update_fields=['counted_for_ranking'])
         
-    # Streak
     streak_logic.update_user_streak(user) 
     
-    # WPM milestone
     new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
     
-    # Achievements
     new_achievements = achievement_logic.check_for_new_achievements(user, progress)
     
-    # Stats
     if progress.counted_for_ranking:
         stats_logic.update_user_stats(user)
     else:
