@@ -1,15 +1,7 @@
-// src/hooks/useAntiCheating.js
 import { useEffect, useRef } from "react";
 
-/**
- * Hook zarządzający logiką wykrywania oszustw na frontendzie.
- * @param {function} cancelSession - Funkcja do wywołania po wykryciu oszustwa.
- * @param {boolean} isQuizMode - Czy hook jest używany w komponencie Quiz.
- * @param {boolean} enabled - NOWY PARAMETR: Czy hook ma być w ogóle aktywny.
- * @returns {{stopListeners: function}} Kontrola nad nasłuchiwaniem.
- */
 export default function useAntiCheating(cancelSession, isQuizMode = false, enabled = true) {
-    const listenersActive = useRef(enabled); // Inicjujemy stanem 'enabled'
+    const listenersActive = useRef(enabled); 
     const devtoolsOpen = useRef(false);
 
     useEffect(() => {

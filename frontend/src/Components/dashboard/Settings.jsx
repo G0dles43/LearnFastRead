@@ -98,16 +98,13 @@ export default function Settings({ api }) {
         chunk_size: chunkSize,
       })
       .then(() => {
-        alert("Ustawienia zapisane!");
         navigate("/dashboard");
       })
       .catch((err) => {
         console.error("Błąd zapisu ustawień:", err.response);
         if (err.response?.data?.speed) {
-          alert(`Błąd: ${err.response.data.speed[0]}`);
           setWpm(maxWpmLimit);
         } else {
-          alert("Nieznany błąd zapisu ustawień.");
         }
       });
   };
@@ -170,7 +167,7 @@ export default function Settings({ api }) {
               </svg>
               Tryb czytania
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <button
                 onClick={() => setMode('rsvp')}
                 className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
@@ -185,6 +182,22 @@ export default function Settings({ api }) {
                 </div>
                 <div className="font-semibold mb-1">RSVP</div>
                 <div className="text-sm text-text-secondary">Jedno słowo</div>
+              </button>
+
+              <button
+                onClick={() => setMode('rsvp-orp')}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp-orp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
+                  }`}
+              >
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'rsvp-orp' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
+                  }`}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'rsvp-orp' ? 'stroke-white' : 'stroke-current'}>
+                    <circle cx="12" cy="12" r="2" fill={mode === 'rsvp-orp' ? 'white' : 'currentColor'} />
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                </div>
+                <div className="font-semibold mb-1">RSVP ORP</div>
+                <div className="text-sm text-text-secondary">Z punktem fokusa</div>
               </button>
 
               <button
@@ -219,6 +232,25 @@ export default function Settings({ api }) {
                 <div className="text-sm text-text-secondary">Grupy słów</div>
               </button>
             </div>
+
+            {mode === 'rsvp-orp' && (
+              <div className="mt-6 p-4 bg-primary/10 border border-primary/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4M12 8h.01" />
+                  </svg>
+                  <div className="text-sm">
+                    <strong className="block mb-1 text-primary-light">Tryb RSVP z ORP (Optimal Recognition Point)</strong>
+                    <p className="text-text-secondary">
+                      Ten tryb wyświetla słowa z podświetloną literą w punkcie optymalnego rozpoznania. 
+                      Wszystkie słowa są wyrównane względem tego samego punktu, co pozwala oku pozostać 
+                      w jednym miejscu i znacznie zwiększa komfort oraz prędkość czytania.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="h-px bg-border my-8" />
@@ -247,7 +279,7 @@ export default function Settings({ api }) {
                 value={Math.min(wpm, maxWpmLimit)}  
                 onChange={(e) => {
                   const newValue = parseInt(e.target.value);
-                  setWpm(Math.min(newValue, maxWpmLimit));  {/* POPRAWKA: Nie pozwól przekroczyć */}
+                  setWpm(Math.min(newValue, maxWpmLimit));  
                 }}
                 className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
                 style={{

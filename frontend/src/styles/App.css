@@ -6,28 +6,27 @@
 
 @layer base {
   
-  /* === NOWY MOTYW JASNY (KREMOWY) === */
   :root {
-    --primary: #6366f1; /* Fioletowy (możesz zmienić na np. brązowy: #854d0e) */
-    --primary-hover: #4f46e5; /* Ciemniejszy fiolet (lub brąz: #71410b) */
+    --primary: #6366f1; 
+    --primary-hover: #4f46e5; 
     --primary-light: #818cf8;
     --secondary: #8b5cf6;
     --accent: #ec4899;
-    --success: #16a34a; /* Ciemniejsza zieleń dla kontrastu */
+    --success: #16a34a;
     --warning: #f59e0b;
     --danger: #ef4444;
     
-    --bg-main: #fdfaf6; /* Bardzo jasny kremowy */
-    --bg-surface: #fffcf7; /* Kremowa biel na karty */
-    --bg-surface-hover: #f7f3e9; /* Ciemniejszy kremowy */
-    --bg-elevated: #fffcf7; /* Kremowa biel na karty */
+    --bg-main: #fdfaf6; 
+    --bg-surface: #fffcf7; 
+    --bg-surface-hover: #f7f3e9; 
+    --bg-elevated: #fffcf7; 
     
-    --text-primary: #5a4a3b; /* Ciemny brąz (Sepia) */
-    --text-secondary: #8c7b6a; /* Średni brąz */
-    --text-muted: #a19283; /* Jasny brąz */
+    --text-primary: #5a4a3b; 
+    --text-secondary: #8c7b6a; 
+    --text-muted: #a19283;
     
-    --border: #dcd3c4; /* Beżowa ramka */
-    --border-light: #eee6d8; /* Bardzo jasna beżowa ramka */
+    --border: #dcd3c4;
+    --border-light: #eee6d8; 
     
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
@@ -39,10 +38,8 @@
     --shadow-xl: 0 20px 25px -5px rgb(80 60 40 / 0.1);
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* === KONIEC NOWEGO MOTYWU === */
 
 
-  /* MOTYW CIEMNY (został bez zmian) */
   .dark {
     --primary: #6366f1;
     --primary-hover: #4f46e5;
@@ -66,7 +63,6 @@
     --border-light: #3a3a52;
   }
 
-  /* Reszta pliku bez zmian */
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--bg-main);

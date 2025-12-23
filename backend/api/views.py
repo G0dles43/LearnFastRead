@@ -48,7 +48,7 @@ User = get_user_model()
 
 try:
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash-lite')
 except Exception as e:
     gemini_model = None
 

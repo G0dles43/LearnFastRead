@@ -113,7 +113,6 @@ export default function ExerciseCreator({ api }) {
   const handleRankedChange = (e) => {
     const newRankedValue = e.target.checked;
     setIsRanked(newRankedValue);
-    // Jeśli odznaczamy ranked, to siłą rzeczy nie może być daily
     if (!newRankedValue) {
         setIsDailyCandidate(false);
     }
@@ -183,10 +182,8 @@ export default function ExerciseCreator({ api }) {
     try {
       if (isEditMode) {
         await api.patch(`exercises/${id}/`, payload);
-        alert("Zaktualizowano!");
       } else {
         await api.post("exercises/create/", payload);
-        alert("Utworzono!");
       }
       navigate("/dashboard");
     } catch (error) {
@@ -245,7 +242,7 @@ export default function ExerciseCreator({ api }) {
                     checked={isRanked} 
                     onChange={handleRankedChange} 
                     className="w-5 h-5 accent-primary" 
-                    disabled={isDailyCandidate} // Nie można odznaczyć ranked, jak jest w daily
+                    disabled={isDailyCandidate} 
                   />
                   <div>
                     <div className="font-semibold">Tryb Rankingowy</div>
@@ -253,7 +250,6 @@ export default function ExerciseCreator({ api }) {
                   </div>
                 </label>
 
-                {/* UKRYTA PULA DAILY */}
                 <label className={`flex items-center gap-3 cursor-pointer p-3 rounded-md border-2 transition-all ${
                     isDailyCandidate ? 'border-purple-500 bg-purple-500/10' : 'border-transparent hover:bg-background-main'
                 }`}>
@@ -264,13 +260,10 @@ export default function ExerciseCreator({ api }) {
                         const checked = e.target.checked;
                         setIsDailyCandidate(checked);
                         if (checked) {
-                            // WŁĄCZENIE: Wymuś ranked i ukryj publiczne
                             setIsRanked(true);
                             setIsPublic(false); 
                         } else {
-                            // WYŁĄCZENIE: Wyłącz ranked (tak jak chciałeś)
                             setIsRanked(false);
-                            // Publiczne zostawiamy wyłączone (domyślne) lub można włączyć
                         }
                     }} 
                     className="w-5 h-5 accent-purple-500" 
@@ -285,7 +278,6 @@ export default function ExerciseCreator({ api }) {
                   </div>
                 </label>
 
-                {/* PUBLICZNE */}
                 <label className={`flex items-center gap-3 cursor-pointer p-3 rounded-md ${isPublic ? 'bg-primary/10' : 'hover:bg-background-main'} ${isDailyCandidate ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <input 
                     type="checkbox" 
@@ -304,26 +296,27 @@ export default function ExerciseCreator({ api }) {
                   </div>
                 </label>
                 
-                {/* Manualna data */}
-                <div className="mt-4 pt-4 border-t border-border">
-                    <label className="block font-semibold mb-2 text-text-primary flex items-center gap-2">
-                        📅 (Opcjonalnie) Wymuś konkretną datę
-                        {dailyDate && <span className="text-xs bg-success/20 text-success px-2 py-1 rounded">Ustawiono</span>}
-                    </label>
-                    <div className="flex gap-4 items-center">
-                        <input 
-                            type="date" 
-                            className="p-3 bg-background-main border-2 border-border rounded-md text-text-primary focus:border-primary outline-none"
-                            value={dailyDate || ""}
-                            onChange={(e) => setDailyDate(e.target.value)}
-                        />
-                        {dailyDate && (
-                            <button onClick={() => setDailyDate("")} className="text-sm text-danger hover:underline">
-                                Wyczyść datę
-                            </button>
-                        )}
+                {isDailyCandidate && (
+                    <div className="mt-4 pt-4 border-t border-border animate-fade-in">
+                        <label className="block font-semibold mb-2 text-text-primary flex items-center gap-2">
+                            📅 (Opcjonalnie) Wymuś konkretną datę
+                            {dailyDate && <span className="text-xs bg-success/20 text-success px-2 py-1 rounded">Ustawiono</span>}
+                        </label>
+                        <div className="flex gap-4 items-center">
+                            <input 
+                                type="date" 
+                                className="p-3 bg-background-main border-2 border-border rounded-md text-text-primary focus:border-primary outline-none"
+                                value={dailyDate || ""}
+                                onChange={(e) => setDailyDate(e.target.value)}
+                            />
+                            {dailyDate && (
+                                <button onClick={() => setDailyDate("")} className="text-sm text-danger hover:underline">
+                                    Wyczyść datę
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
               </div>
 

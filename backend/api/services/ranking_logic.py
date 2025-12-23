@@ -1,6 +1,6 @@
 from django.utils import timezone
 from datetime import timedelta
-from ..models import UserProgress
+from ..models import UserProgress, DailyChallenge
 from ..services.challenge_service import get_today_challenge 
 
 def _calculate_base_ranking_points(progress: UserProgress) -> int:

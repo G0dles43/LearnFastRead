@@ -12,6 +12,11 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
 
   const totalCount = openCount + choiceCount;
 
+  // Obliczamy dynamiczne limity dla każdego suwaka
+  // (np. jeśli mamy 5 pytań zamkniętych, to otwartych może być max 45)
+  const maxOpen = MAX_TOTAL - choiceCount;
+  const maxChoice = MAX_TOTAL - openCount;
+
   const handleGenerateAiQuestions = async () => {
     if (!text.trim() || text.trim().length < 50) {
       onError("Wklej najpierw tekst źródłowy (minimum 50 znaków).");
@@ -63,6 +68,33 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
     setIsModalOpen(false);
   };
 
+
+  const getSliderBackground = (value, max, colorVariable) => {
+    const percentage = max > 0 ? (value / max) * 100 : 0;
+    return {
+      background: `linear-gradient(to right, var(${colorVariable}) 0%, var(${colorVariable}) ${percentage}%, var(--border) ${percentage}%, var(--border) 100%)`
+    };
+  };
+
+  const rangeInputClasses = `
+    w-full h-3 rounded-lg outline-none appearance-none cursor-pointer bg-transparent
+    [&::-webkit-slider-thumb]:appearance-none 
+    [&::-webkit-slider-thumb]:w-5 
+    [&::-webkit-slider-thumb]:h-5 
+    [&::-webkit-slider-thumb]:rounded-full 
+    [&::-webkit-slider-thumb]:bg-white 
+    [&::-webkit-slider-thumb]:shadow-md 
+    [&::-webkit-slider-thumb]:mt-[-4px]
+    [&::-webkit-slider-thumb]:border
+    [&::-webkit-slider-thumb]:border-gray-200
+    [&::-moz-range-thumb]:w-5 
+    [&::-moz-range-thumb]:h-5 
+    [&::-moz-range-thumb]:rounded-full 
+    [&::-moz-range-thumb]:bg-white 
+    [&::-moz-range-thumb]:border-none 
+    [&::-moz-range-thumb]:shadow-md
+  `;
+
   return (
     <>
       <button
@@ -86,7 +118,6 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               Użyj suwaków, aby dostosować liczbę pytań. Suma musi wynosić {MIN_TOTAL}-{MAX_TOTAL}.
             </p>
 
-            {/* Pytania Otwarte */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-3">
                 <label className="font-semibold text-text-primary">Pytania Otwarte</label>
@@ -97,18 +128,19 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               <input
                 type="range"
                 min="0"
-                max={MAX_TOTAL - choiceCount}
+                max={maxOpen}
                 step="1"
                 value={openCount}
                 onChange={(e) => setOpenCount(parseInt(e.target.value))}
-                className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(openCount / MAX_TOTAL) * 100}%, var(--border) ${(openCount / MAX_TOTAL) * 100}%, var(--border) 100%)`
-                }}
+                className={rangeInputClasses}
+                style={getSliderBackground(openCount, maxOpen, '--primary')}
               />
+              <div className="flex justify-between text-xs text-text-secondary mt-1">
+                <span>0</span>
+                <span>max: {maxOpen}</span>
+              </div>
             </div>
 
-            {/* Pytania Zamknięte */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-3">
                 <label className="font-semibold text-text-primary">Pytania Zamknięte</label>
@@ -119,19 +151,20 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               <input
                 type="range"
                 min="0"
-                max={MAX_TOTAL - openCount}
+                max={maxChoice}
                 step="1"
                 value={choiceCount}
                 onChange={(e) => setChoiceCount(parseInt(e.target.value))}
-                className="w-full h-3 rounded-lg outline-none appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, var(--secondary) 0%, var(--secondary) ${(choiceCount / MAX_TOTAL) * 100}%, var(--border) ${(choiceCount / MAX_TOTAL) * 100}%, var(--border) 100%)`
-                }}
+                className={rangeInputClasses}
+                style={getSliderBackground(choiceCount, maxChoice, '--secondary')}
               />
+              <div className="flex justify-between text-xs text-text-secondary mt-1">
+                <span>0</span>
+                <span>max: {maxChoice}</span>
+              </div>
             </div>
 
-            {/* Podsumowanie */}
-            <div className={`text-center text-lg font-semibold mb-6 p-4 rounded-md ${
+            <div className={`text-center text-lg font-semibold mb-6 p-4 rounded-md transition-colors ${
               totalCount >= MIN_TOTAL && totalCount <= MAX_TOTAL 
                 ? 'bg-success/10 text-success border-2 border-success' 
                 : 'bg-danger/10 text-danger border-2 border-danger'
@@ -139,7 +172,6 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               Suma: {totalCount} / {MIN_TOTAL}-{MAX_TOTAL}
             </div>
 
-            {/* Przyciski */}
             <div className="flex justify-between gap-4">
               <button
                 onClick={handleCloseModal}
@@ -150,7 +182,7 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
               </button>
               <button
                 onClick={handleGenerateAiQuestions}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 bg-gradient-to-r from-primary to-primary-light disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none"
                 disabled={aiLoading || totalCount < MIN_TOTAL || totalCount > MAX_TOTAL}
               >
                 {aiLoading ? (

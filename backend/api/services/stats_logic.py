@@ -1,4 +1,3 @@
-# api/services/stats_logic.py
 from ..models import CustomUser, UserProgress
 from django.db.models import Sum, Avg, Count
 

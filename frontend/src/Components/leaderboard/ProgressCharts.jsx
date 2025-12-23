@@ -30,7 +30,6 @@ export default function ProgressCharts() {
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("access");
 
-  // Pobieramy kolory z :root CSS, aby wykres pasował do motywu
   const [chartColors, setChartColors] = useState({
     primary: 'rgba(99, 102, 241, 1)',
     primaryTransparent: 'rgba(99, 102, 241, 0.1)',
@@ -43,7 +42,6 @@ export default function ProgressCharts() {
   });
 
   useEffect(() => {
-    // Czekamy chwilę na załadowanie CSS
     setTimeout(() => {
       const styles = getComputedStyle(document.documentElement);
       setChartColors({
@@ -61,7 +59,7 @@ export default function ProgressCharts() {
 
 
   useEffect(() => {
-    if (!token || !chartColors.primary) return; // Czekamy też na kolory
+    if (!token || !chartColors.primary) return; 
 
     axios
       .get("http://127.0.0.1:8000/api/user/progress-history/", {
@@ -130,7 +128,7 @@ export default function ProgressCharts() {
         console.error("Błąd pobierania historii postępów", err);
         setLoading(false);
       });
-  }, [token, chartColors]); // Uruchom ponownie, gdy kolory będą gotowe
+  }, [token, chartColors]); 
 
   const options = {
     responsive: true,

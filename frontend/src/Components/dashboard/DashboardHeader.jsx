@@ -15,12 +15,8 @@ export default function DashboardHeader({ userName, currentStreak, isLoading, ap
   };
 
   const handleLogout = () => {
-    // === POCZĄTEK ZMIANY ===
-    // Zamiast localStorage.clear(), usuwamy tylko klucze sesji
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
-    // To zostawi klucz "theme" nietknięty
-    // === KONIEC ZMIANY ===
     navigate("/");
   };
 

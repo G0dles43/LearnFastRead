@@ -11,7 +11,7 @@ const getInitialTheme = () => {
       return 'dark';
     }
   }
-  return 'dark'; // Domyślny jest ciemny
+  return 'dark';
 };
 
 export const useTheme = () => {

@@ -1,11 +1,6 @@
-// src/hooks/useExerciseFilters.js
 import { useState, useEffect } from 'react';
-// Linia "import { useApi }..." musi być USUNIĘTA
 
-// ZMIANA 1: Funkcja przyjmuje 'api' jako pierwszy argument
 export function useExerciseFilters(api, initialSort = '-created_at') {
-  // ZMIANA 2: Ta linia jest USUNIĘTA
-  // const api = useApi(); 
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterOptions, setFilterOptions] = useState({
@@ -15,9 +10,7 @@ export function useExerciseFilters(api, initialSort = '-created_at') {
   });
   const [sortBy, setSortBy] = useState(initialSort);
 
-  // Efekt do pobierania ćwiczeń przy zmianie filtrów
   useEffect(() => {
-    // ZMIANA 3: Sprawdzamy, czy 'api' zostało przekazane
     if (!api) {
       setLoading(false);
       return;
@@ -43,9 +36,8 @@ export function useExerciseFilters(api, initialSort = '-created_at') {
       }
     }
     fetchExercises();
-  }, [api, filterOptions, sortBy]); // ZMIANA 4: 'api' jest w tablicy zależności
+  }, [api, filterOptions, sortBy]); 
 
-  // Akcje
   const toggleFavorite = async (id) => {
     if (!api) return;
     try {
@@ -53,7 +45,7 @@ export function useExerciseFilters(api, initialSort = '-created_at') {
       setExercises(prev =>
         prev.map(ex =>
           ex.id === id ? { ...ex, is_favorite: !ex.is_favorite } : ex
-        ).filter(ex => filterOptions.favorites ? ex.is_favorite : true) // Od razu filtruj, jeśli trzeba
+        ).filter(ex => filterOptions.favorites ? ex.is_favorite : true) 
       );
     } catch (err) {
       console.error("Błąd aktualizacji ulubionych:", err);

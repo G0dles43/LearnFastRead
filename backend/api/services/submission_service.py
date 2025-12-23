@@ -1,61 +1,95 @@
-from ..models import UserProgress, CustomUser, ReadingExercise, Notification
-from . import ranking_logic, streak_logic, stats_logic, achievement_logic, wpm_logic
-from django.db import transaction
+import traceback
+from django.utils import timezone
+from ..models import UserProgress, ReadingExercise, DailyChallenge
 
 class SubmissionResult:
-    def __init__(self, progress: UserProgress, new_achievements=None, new_wpm_limit=None):
+    def __init__(self, progress, new_achievements, new_wpm_limit):
         self.progress = progress
-        self.new_achievements = new_achievements or []
+        self.new_achievements = new_achievements
         self.new_wpm_limit = new_wpm_limit
-    
+
     def to_dict(self):
         return {
-            'wpm': self.progress.wpm,
-            'accuracy': self.progress.accuracy,
-            'ranking_points': self.progress.ranking_points,
-            'counted_for_ranking': self.progress.counted_for_ranking,
-            'attempt_number': self.progress.attempt_number,
-            'new_wpm_limit': self.new_wpm_limit,
-            'new_achievements_count': len(self.new_achievements)
+            "wpm": self.progress.wpm,
+            "accuracy": self.progress.accuracy,
+            "ranking_points": self.progress.ranking_points,
+            "counted_for_ranking": self.progress.counted_for_ranking,
+            "completed_daily_challenge": self.progress.completed_daily_challenge,
+            "new_achievements": [a.title for a in self.new_achievements],
+            "new_wpm_limit": self.new_wpm_limit
         }
 
-@transaction.atomic
-def process_exercise_submission(user: CustomUser, exercise: ReadingExercise, reading_time_ms: int, accuracy: float) -> SubmissionResult:
+def process_exercise_submission(user, exercise, reading_time_ms, accuracy):
     """
-    POPRAWKA: Używamy reading_time_ms bezpośrednio do obliczenia WPM
+    Główna logika przetwarzania wyniku.
     """
-    
-    minutes = reading_time_ms / 60000.0
-    if minutes == 0:
-        wpm = 0
-    else:
-        wpm = round(exercise.word_count / minutes)
-    
-    progress = UserProgress(
-        user=user,
-        exercise=exercise,
-        wpm=wpm,  
-        accuracy=accuracy
-    )
-    
-    old_ranked_attempt = ranking_logic.determine_ranking_eligibility(progress)
-    ranking_logic.calculate_final_points(progress)
-    
-    progress.save()
-    
-    if old_ranked_attempt:
-        old_ranked_attempt.counted_for_ranking = False
-        old_ranked_attempt.save(update_fields=['counted_for_ranking'])
-        
-    streak_logic.update_user_streak(user) 
-    
-    new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
-    
-    new_achievements = achievement_logic.check_for_new_achievements(user, progress)
-    
-    if progress.counted_for_ranking:
-        stats_logic.update_user_stats(user)
-    else:
-        user.save(update_fields=['current_streak', 'max_streak', 'last_streak_date'])
+    try:
+        from .challenge_service import get_today_challenge
+        from . import ranking_logic, wpm_logic, streak_logic, achievement_logic
 
-    return SubmissionResult(progress, new_achievements, new_wpm_limit)
+        minutes = reading_time_ms / 60000.0
+        wpm = 0
+        if minutes > 0.0001 and exercise.word_count > 0:
+            wpm = int(exercise.word_count / minutes)
+        
+        today_challenge = get_today_challenge()
+        is_daily_attempt = (today_challenge and today_challenge.id == exercise.id)
+        daily_bonus_earned = False
+
+        progress = UserProgress(
+            user=user,
+            exercise=exercise,
+            wpm=wpm,
+            accuracy=accuracy,
+            completed_at=timezone.now()
+        )
+
+        old_attempt_to_deactivate = ranking_logic.determine_ranking_eligibility(progress)
+
+        if is_daily_attempt:
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            already_completed_with_success = UserProgress.objects.filter(
+                user=user,
+                exercise=exercise,
+                completed_daily_challenge=True, 
+                completed_at__gte=today_start
+            ).exists()
+
+            if not already_completed_with_success:
+                progress.counted_for_ranking = True
+                
+                if accuracy >= 60:
+                    progress.completed_daily_challenge = True
+                    daily_bonus_earned = True
+            else:
+                progress.counted_for_ranking = False
+                progress.completed_daily_challenge = False
+
+        if progress.counted_for_ranking:
+            ranking_logic.calculate_final_points(progress)
+            
+            if daily_bonus_earned:
+                progress.ranking_points += 50 
+
+        progress.save()
+
+        if old_attempt_to_deactivate and not is_daily_attempt:
+            old_attempt_to_deactivate.counted_for_ranking = False
+            old_attempt_to_deactivate.save()
+
+        streak_logic.update_user_streak(user)
+        
+        if progress.counted_for_ranking and progress.accuracy >= 60:
+            from . import stats_logic
+            stats_logic.update_user_stats(user)
+
+        new_achievements = achievement_logic.check_for_new_achievements(user, progress)
+        new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
+
+        return SubmissionResult(progress, new_achievements, new_wpm_limit)
+
+    except Exception as e:
+        print("BŁĄD KRYTYCZNY W SUBMISSION SERVICE:")
+        traceback.print_exc()
+        raise e

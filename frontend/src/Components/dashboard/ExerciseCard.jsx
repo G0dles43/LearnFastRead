@@ -17,7 +17,7 @@ export default function ExerciseCard({
     is_ranked,
     user_attempt_status,
     is_public,
-    is_today_daily, // <--- Nowe pole z API
+    is_today_daily, 
     word_count,
     created_by,
     created_by_id,
@@ -42,7 +42,6 @@ export default function ExerciseCard({
             {title}
           </h3>
 
-          {/* ETYKIETA DAILY */}
           {is_today_daily && (
             <span className="inline-flex items-center mt-3 gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-purple-500 text-white shadow-sm animate-pulse">
                🔥 WYZWANIE DNIA

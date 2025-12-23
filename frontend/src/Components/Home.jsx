@@ -5,16 +5,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-main/95 to-background-surface/95 bg-[url('/3.png')] bg-cover bg-center bg-fixed text-text-primary">
       
-      {/* Hero Section */}
       <div className="min-h-screen flex items-center relative overflow-hidden">
-        {/* Animated background elements */}
         <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] bg-[radial-gradient(circle,theme(colors.primary.DEFAULT)_/_0.15)_0%,transparent_70%)] rounded-full animate-float pointer-events-none" style={{ animationDuration: '6s' }} />
         <div className="absolute bottom-[10%] left-[5%] w-[300px] h-[300px] bg-[radial-gradient(circle,theme(colors.secondary)_/_0.15)_0%,transparent_70%)] rounded-full animate-float pointer-events-none" style={{ animationDuration: '8s', animationDirection: 'reverse' }} />
 
         <div className="mx-auto w-full max-w-[1400px] px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             
-            {/* Left Content */}
             <div className="animate-fade-in">
               <div className="mb-8">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30 mb-6">
@@ -80,7 +77,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right Content - Feature Cards */}
             <div className="animate-fade-in [animation-delay:0.2s]">
               <div className="flex flex-col gap-6">
                 <div className="bg-background-elevated shadow-md rounded-lg p-8 border-2 border-transparent transition-all hover:border-primary cursor-pointer">
@@ -143,7 +139,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Features Section */}
       <div className="py-32 bg-gradient-to-b from-transparent via-background-surface to-transparent">
         <div className="mx-auto w-full max-w-[1400px] px-6">
           <div className="text-center mb-20">
@@ -184,7 +179,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CTA Section */}
       <div className="py-24">
         <div className="mx-auto w-full max-w-[1400px] px-6">
           <div className="bg-background-elevated shadow-xl rounded-lg p-16 text-center bg-gradient-to-br from-primary/15 to-secondary/[.05] border-2 border-primary/30 relative overflow-hidden">

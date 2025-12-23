@@ -34,7 +34,7 @@ class AchievementLogicTests(TestCase):
             wpm=wpm,
             accuracy=accuracy,
             counted_for_ranking=ranked,
-            ranking_points=points, # Domyślnie > 0, aby kwalifikować się
+            ranking_points=points, 
             completed_daily_challenge=daily
         )
 
@@ -42,29 +42,22 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 1: Odblokowanie 'wpm_300'
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_normal, 301, 90)
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 1)
         self.assertEqual(new_achievements[0].slug, "wpm_300")
-        # Sprawdź, czy zostało to ZAPISANE w bazie danych
         self.assertTrue(UserAchievement.objects.filter(user=self.user, achievement__slug="wpm_300").exists())
 
     def test_award_wpm_800_and_300_at_once(self):
         """
         Test SCENARIUSZA 2: Odblokowanie 'wpm_800' powinno też dać 'wpm_300'
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_normal, 850, 90)
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 2)
         slugs = {ach.slug for ach in new_achievements}
         self.assertEqual(slugs, {"wpm_300", "wpm_800"})
@@ -74,13 +67,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 3: Odblokowanie 'accuracy_100'
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_normal, 200, 100)
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 1)
         self.assertEqual(new_achievements[0].slug, "accuracy_100")
 
@@ -88,13 +78,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 4: Odblokowanie 'marathoner'
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_long, 200, 90) # Używamy DŁUGIEGO tekstu
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 1)
         self.assertEqual(new_achievements[0].slug, "marathoner")
 
@@ -102,13 +89,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 5: Odblokowanie 'daily_challenger'
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_normal, 200, 90, daily=True) # Ustawiamy flagę
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 1)
         self.assertEqual(new_achievements[0].slug, "daily_challenger")
 
@@ -116,13 +100,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 6: Odblokowanie kilku na raz (Maratończyk, 800+ WPM, 100% Acc)
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_long, 900, 100) # Wszystkie warunki spełnione
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 4) # wpm_300, wpm_800, accuracy_100, marathoner
         slugs = {ach.slug for ach in new_achievements}
         self.assertEqual(slugs, {"wpm_300", "wpm_800", "accuracy_100", "marathoner"})
@@ -131,13 +112,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 7: Brak nagród, jeśli ranking_points = 0
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_long, 900, 100, points=0) # Spełnia WPM/Acc, ale punkty = 0
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 0)
         self.assertEqual(UserAchievement.objects.filter(user=self.user).count(), 0)
 
@@ -145,13 +123,10 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 8: Brak nagród, jeśli counted_for_ranking = False
         """
-        # Arrange
         progress = self._create_test_progress(self.exercise_long, 900, 100, ranked=False) # Spełnia WPM/Acc, ale próba nierankingowa
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
         self.assertEqual(len(new_achievements), 0)
         self.assertEqual(UserAchievement.objects.filter(user=self.user).count(), 0)
 
@@ -159,19 +134,13 @@ class AchievementLogicTests(TestCase):
         """
         Test SCENARIUSZA 9: Nie przyznawaj duplikatów
         """
-        # Arrange
-        # Użytkownik już ma 'wpm_300'
         ach_300 = Achievement.objects.get(slug="wpm_300")
         UserAchievement.objects.create(user=self.user, achievement=ach_300)
         
         progress = self._create_test_progress(self.exercise_normal, 301, 90) # Kwalifikuje się do wpm_300
         
-        # Act
         new_achievements = achievement_logic.check_for_new_achievements(self.user, progress)
         
-        # Assert
-        # Funkcja NIE powinna zwrócić "wpm_300" jako NOWEGO osiągnięcia
         self.assertEqual(len(new_achievements), 0)
-        # W bazie nadal jest tylko 1 wpis
         self.assertEqual(UserAchievement.objects.filter(user=self.user).count(), 1)
         self.assertEqual(UserAchievement.objects.get(user=self.user).achievement, ach_300)

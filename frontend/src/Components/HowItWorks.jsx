@@ -261,7 +261,7 @@ export default function HowItWorks() {
               <li>
                 <strong className="text-lg text-primary">System Znajomych i Aktywności</strong>
                 <p className="text-text-secondary">
-                  W zakładce "Ranking" możesz wyszukiwać i **obserwować** innych użytkowników. Odblokowuje to dwie funkcje: "Ranking Znajomych" (prywatna tabela liderów) oraz "Aktywność Znajomych" na głównym panelu, gdzie widzisz ich ostatnie osiągnięcia.
+                  W zakładce "Ranking" możesz wyszukiwać i obserwować innych użytkowników. Odblokowuje to dwie funkcje: "Ranking Znajomych" (prywatna tabela liderów) oraz "Aktywność Znajomych" na głównym panelu, gdzie widzisz ich ostatnie osiągnięcia.
                 </p>
               </li>
               <li>
@@ -298,7 +298,7 @@ export default function HowItWorks() {
           </div>
 
           <div className="bg-background-elevated shadow-md rounded-lg p-8 bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/30">
-            <h2 className="text-2xl font-bold mb-4 text-text-primary">📌 Podsumowanie</h2>
+            <h2 className="text-2xl font-bold mb-4 text-text-primary">Podsumowanie</h2>
             <div className="space-y-3 text-text-secondary">
               <p>✓ <strong className="text-text-primary">Statystyki (WPM, Accuracy, Punkty):</strong> TYLKO z zaliczonych prób (≥60%)</p>
               <p>✓ <strong className="text-text-primary">Próg zaliczenia:</strong> 60% trafności w quizie</p>

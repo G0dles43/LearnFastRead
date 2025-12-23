@@ -27,6 +27,7 @@ class CustomUser(AbstractUser):
     
     MODE_CHOICES = (
         ('rsvp', 'RSVP'),
+        ('rsvp-orp', 'RSVP-ORP'),
         ('highlight', 'Highlight'),
         ('chunking', 'Chunking'), 
     )

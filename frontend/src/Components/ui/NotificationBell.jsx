@@ -34,7 +34,6 @@ export default function NotificationBell({ api }) {
         return;
       }
 
-      // POPRAWKA: Resetuj źródło i załaduj na nowo
       audioRef.current.load();
       audioRef.current.volume = 0.5;
       audioRef.current.currentTime = 0;

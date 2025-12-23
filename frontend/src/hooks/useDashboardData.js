@@ -1,12 +1,7 @@
-// src/hooks/useDashboardData.js
 import { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
-// Linia "import { useApi }..." musi być USUNIĘTA
 
-// ZMIANA 1: Funkcja przyjmuje 'api' jako argument
 export function useDashboardData(api) { 
-  // ZMIANA 2: Ta linia jest USUNIĘTA (to ona powodowała błąd)
-  // const api = useApi(); 
   const [userStatus, setUserStatus] = useState(null);
   const [collections, setCollections] = useState([]);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
@@ -22,7 +17,6 @@ export function useDashboardData(api) {
       }
     }
 
-    // ZMIANA 3: Sprawdzamy, czy 'api' zostało przekazane
     if (!api) {
       setLoading(false);
       return;

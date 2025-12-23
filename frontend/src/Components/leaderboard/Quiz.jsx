@@ -67,7 +67,6 @@ export default function Quiz({
     stopListenersRef.current = stopListeners;
   }, [stopListeners]);
 
-  // ⭐ POPRAWKA: Synchronizuj answersRef z aktualnym stanem
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
@@ -83,7 +82,6 @@ export default function Quiz({
         if (prev <= 1) {
           clearInterval(timerIntervalRef.current);
           setTimerExpired(true);
-          // ⭐ POPRAWKA: Użyj answersRef.current zamiast answers
           submitQuiz(answersRef.current);
           return 0;
         }
@@ -92,7 +90,7 @@ export default function Quiz({
     }, 1000);
 
     return () => clearInterval(timerIntervalRef.current);
-  }, [resultData, timerExpired, cheatingInProgress.current]); // ⭐ USUNIĘTO 'answers' z zależności
+  }, [resultData, timerExpired, cheatingInProgress.current]);
 
   const submitQuiz = async (finalAnswers) => {
     if (isSubmitting || hasSubmittedRef.current || cheatingInProgress.current) return;
@@ -133,7 +131,6 @@ export default function Quiz({
   };
 
   const handleSubmit = () => {
-    // ⭐ POPRAWKA: Użyj answersRef.current
     submitQuiz(answersRef.current);
   };
 

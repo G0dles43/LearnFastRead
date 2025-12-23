@@ -4,9 +4,8 @@ import { useNavigate } from "react-router-dom";
 import MyAchievements from "./MyAchievements.jsx";
 import ProgressCharts from "./ProgressCharts.jsx";
 import { jwtDecode } from "jwt-decode";
-import LeaderboardTable from "./LeaderboardTable.jsx"; // IMPORTUJEMY NOWY KOMPONENT
+import LeaderboardTable from "./LeaderboardTable.jsx"; 
 
-// Funkcje pomocnicze i komponent LeaderboardTable zostały przeniesione do LeaderboardTable.jsx
 
 export default function Leaderboard({ api }) {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -126,8 +125,6 @@ export default function Leaderboard({ api }) {
     }
   }, [activeTab, fetchFriendsLeaderboard]);
 
-  // Funkcja getRankBadgeClasses (potrzebna do MyStats) musi tu zostać
-  // lub zostać przeniesiona do globalnego utils. Zostawmy ją tutaj na razie.
   const getRankBadgeClasses = (rank) => {
     if (rank === 1) return 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30 text-white';
     if (rank === 2) return 'bg-gradient-to-br from-gray-300 to-gray-400 shadow-lg shadow-gray-300/30 text-gray-800';
@@ -135,7 +132,6 @@ export default function Leaderboard({ api }) {
     return 'bg-background-elevated shadow-transparent text-text-primary';
   };
   
-  // getMedalIcon jest też potrzebny tutaj
   const getMedalIcon = (rank) => {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";

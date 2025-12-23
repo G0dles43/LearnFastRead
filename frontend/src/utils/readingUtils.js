@@ -1,9 +1,4 @@
 
-/**
-@param {string} word - Aktualne słowo.
-@param {number} baseSpeedMs - Bazowe opóźnienie (w milisekundach) obliczone z WPM.
-@returns {number} - Skorygowane opóźnienie w milisekundach.
- */
 
 export const getDynamicDelay = (word, baseSpeedMs) => {
   const minTime = baseSpeedMs * 0.75; 
