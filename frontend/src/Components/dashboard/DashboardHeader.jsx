@@ -34,27 +34,16 @@ export default function DashboardHeader({ userName, currentStreak, isLoading, ap
 
           {!isLoading && currentStreak > 0 && (
             <div className="relative group">
-              <div
-                className="inline-flex items-center gap-1 px-3 py-2 cursor-help font-semibold rounded-full bg-warning/15 text-warning border border-warning/30"
-              >
-                <img
-                  src="/fire.gif"
-                  alt="Seria"
-                  className="w-5 h-5 object-contain aspect-auto"
-                />
-                <span className="font-bold text-base">{currentStreak}</span>
-              </div>
-
-              <span
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 
-                           w-max px-3 py-1.5 
-                           bg-background-elevated border border-border rounded-md shadow-lg 
-                           text-text-primary text-sm font-medium
-                           opacity-0 invisible group-hover:opacity-100 group-hover:visible 
-                           transition-opacity duration-200 z-10"
-              >
-                Twoja codzienna seria: {currentStreak} {getDayWord(currentStreak)}!
-              </span>
+             {currentStreak > 0 && (
+                    <div className="relative group inline-flex items-center gap-1 px-3 py-2 cursor-help font-semibold rounded-full bg-warning/15 text-warning border border-warning/30">
+                        <img src="/fire.gif" alt="Streak" className="w-5 h-5 object-contain" />
+                        <span className="font-bold text-base">{currentStreak}</span>
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 mr-15 w-max px-4 py-1.5 bg-background-elevated border border-border rounded-md shadow-lg text-text-primary text-sm font-medium opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 z-10">
+                            Obecna seria
+                        </span>
+                    </div>
+                )}
+                
             </div>
           )}
         </div>

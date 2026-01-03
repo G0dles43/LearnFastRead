@@ -76,10 +76,17 @@ export default function ExerciseCreator({ api }) {
     loadInitialData();
   }, [token, navigate, api, id, isEditMode]);
 
+  // Obliczanie liczby słów
+  const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  // Sprawdzenie limitu (Fix #7 - Frontend Validation)
+  const maxWordsExceeded = isRanked && wordCount > 1000;
+
   useEffect(() => {
     const minBank = 15;
     const isBaseValid = title.trim() !== "" && text.trim() !== "";
-    if (!isBaseValid) {
+    
+    // Dodajemy warunek limitu słów do walidacji formularza
+    if (!isBaseValid || maxWordsExceeded) {
       setIsFormValid(false);
       return;
     }
@@ -98,7 +105,7 @@ export default function ExerciseCreator({ api }) {
     } else {
       setIsFormValid(true);
     }
-  }, [title, text, questions, isRanked]);
+  }, [title, text, questions, isRanked, maxWordsExceeded]); // Dodano maxWordsExceeded do zależności
 
   const getQuestionBankValidationMessage = () => {
     if (!isRanked) return null;
@@ -154,7 +161,7 @@ export default function ExerciseCreator({ api }) {
   const handleSubmit = async () => {
     if (!api) return alert("Błąd: Brak instancji API.");
     if (!isFormValid) {
-      alert("Formularz niekompletny. Sprawdź wymagania.");
+      alert("Formularz niekompletny lub zawiera błędy (np. przekroczony limit słów).");
       return;
     }
     setIsSubmitting(true);
@@ -202,7 +209,6 @@ export default function ExerciseCreator({ api }) {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background-main"><div className="animate-spin rounded-full h-12 w-12 border-primary border-t-2 border-b-2"></div></div>;
   
-  const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
   const validation = getQuestionBankValidationMessage();
 
   return (
@@ -224,8 +230,22 @@ export default function ExerciseCreator({ api }) {
           </div>
 
           <div className="mb-6">
-            <label className="block font-semibold mb-2">Tekst ({wordCount} słów)</label>
-            <textarea className="w-full p-3 bg-background-main border-2 border-border rounded-md focus:border-primary outline-none min-h-[200px]" value={text} onChange={e => setText(e.target.value)} placeholder="Tekst..." />
+            <label className="block font-semibold mb-2">
+                Tekst ({wordCount} słów)
+                {maxWordsExceeded && (
+                    <span className="text-danger text-sm ml-2 font-bold animate-pulse">
+                        Limit dla rankingowych to 1000 słów!
+                    </span>
+                )}
+            </label>
+            <textarea 
+                className={`w-full p-3 bg-background-main border-2 rounded-md focus:outline-none min-h-[200px] ${
+                    maxWordsExceeded ? 'border-danger focus:border-danger' : 'border-border focus:border-primary'
+                }`} 
+                value={text} 
+                onChange={e => setText(e.target.value)} 
+                placeholder="Tekst..." 
+            />
           </div>
 
           {isAdmin && (
@@ -340,7 +360,14 @@ export default function ExerciseCreator({ api }) {
             {isSubmitting ? "Zapisywanie..." : (isEditMode ? "Zapisz Zmiany" : "Stwórz Ćwiczenie")}
           </button>
           
-          {!isFormValid && <p className="text-center text-warning mt-2 text-sm">Uzupełnij formularz (tytuł, tekst, pytania).</p>}
+          {!isFormValid && (
+             <p className="text-center text-warning mt-2 text-sm">
+                {maxWordsExceeded 
+                    ? "Tekst rankingowy jest za długi (max 1000 słów)."
+                    : "Uzupełnij formularz (tytuł, tekst, pytania)."
+                }
+             </p>
+          )}
         </div>
 
         <WikipediaImporter api={api} onTextImported={handleWikipediaImport} />

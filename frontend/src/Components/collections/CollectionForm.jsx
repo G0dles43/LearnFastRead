@@ -116,9 +116,12 @@ export default function CollectionForm({ api }) {
     });
   };
 
+  // --- TUTAJ DODANO FILTROWANIE ---
   const availableExercises = useMemo(() => {
     return allExercises
       .filter(ex => !selectedExerciseIds.has(ex.id))
+      // Filtrujemy ćwiczenia, które są kandydatami na Daily Challenge lub są dzisiejszym Daily
+      .filter(ex => !ex.is_daily_candidate && !ex.is_today_daily) 
       .filter(ex =>
         ex.title.toLowerCase().includes(searchTerm.toLowerCase())
       );

@@ -39,9 +39,8 @@ from datetime import timedelta
 from .services import submission_service
 from .services.submission_service import SubmissionResult
 from django.shortcuts import get_object_or_404
-import threading # <-- Import dla Fixa #7 (Gemini)
+import threading
 
-# Ustaw logger
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
@@ -52,7 +51,6 @@ try:
 except Exception as e:
     gemini_model = None
 
-# Globalna blokada dla Gemini API (Fix #7)
 gemini_api_lock = threading.Lock()
 
 
@@ -78,9 +76,10 @@ class ReadingExerciseList(generics.ListAPIView):
                 Q(created_by=user)
             )
 
+
         show_only_my_private = self.request.query_params.get('my_private')
         if show_only_my_private == 'true':
-            queryset = ReadingExercise.objects.filter(created_by=user, is_public=False)
+            queryset = queryset.filter(created_by=user, is_public=False)
 
         show_favorites = self.request.query_params.get('favorites')
         if show_favorites == 'true':
@@ -94,6 +93,9 @@ class ReadingExerciseList(generics.ListAPIView):
         if show_public == 'true':
             queryset = queryset.filter(is_public=True)
 
+        show_daily_candidates = self.request.query_params.get('daily_candidates')
+        if user.is_staff and show_daily_candidates == 'true':
+            queryset = queryset.filter(is_daily_candidate=True)
 
         sort_by = self.request.query_params.get('sort_by')
 
@@ -107,6 +109,8 @@ class ReadingExerciseList(generics.ListAPIView):
             queryset = queryset.order_by('-word_count')
         elif sort_by == 'created_at_asc':
             queryset = queryset.order_by('created_at')
+        elif sort_by == 'daily_priority' and user.is_staff:
+            queryset = queryset.order_by('-is_daily_candidate', '-created_at')
         else:
             queryset = queryset.order_by('-created_at')
 
@@ -164,12 +168,11 @@ class SubmitProgress(APIView):
                 
                 if reading_time_ms < (min_possible_time_ms * 0.95):
                     logger.warning(f"ANTI-CHEAT: User {user.username} (ID: {user.id}) przesłał niemożliwy czas!")
-                    logger.warning(f"Tekst: {word_count} słów, Czas: {reading_time_ms}ms, Wymagane min: {min_possible_time_ms}ms")
                     
                     submission_service.process_exercise_submission(
                         user=user,
                         exercise=exercise,
-                        reading_time_ms=9999999, # Użyj bardzo dużego czasu, aby WPM było 0
+                        reading_time_ms=9999999,
                         accuracy=0
                     )
                     
@@ -192,8 +195,6 @@ class SubmitProgress(APIView):
                 
                 total_questions_count = correct_questions.count()
                 
-                logger.info(f"Użytkownik odpowiedział na {total_questions_count} pytań.")
-
                 if total_questions_count > 0:
                     correct_answers_count = 0
                     for question in correct_questions:
@@ -207,7 +208,6 @@ class SubmitProgress(APIView):
                 else:
                     accuracy = 0.0
             
-            # Przekazujemy FAKTYCZNY czas czytania do serwisu
             result: SubmissionResult = submission_service.process_exercise_submission(
                 user=user,
                 exercise=exercise,
@@ -216,7 +216,7 @@ class SubmitProgress(APIView):
             )
             
             response_data = result.to_dict()
-            logger.info(f"Zwracane dane: {response_data}") # Ostatni log
+            logger.info(f"Zwracane dane: {response_data}")
 
             if exercise.is_ranked:
                 if result.progress.counted_for_ranking:
@@ -474,7 +474,7 @@ class MyStatsView(APIView):
         recent_results_query = UserProgress.objects.filter(
             user=user,
             counted_for_ranking=True,
-            ranking_points__gt=0
+            ranking_points__gt=0 
         ).order_by('-completed_at')[:10]
 
         recent_results_data = []
@@ -539,7 +539,7 @@ class ExerciseAttemptStatusView(APIView):
             return Response({
                 "can_rank": True,
                 "is_training_mode": False,
-                "message": "Pierwsze podejście - wynik będzie liczony do rankingu!"
+                "message": "Podejście Rankingowe - wynik będzie liczony do rankingu!"
             })
 
         one_month_ago = timezone.now() - timedelta(days=30)
@@ -582,6 +582,13 @@ class TodayChallengeView(APIView):
         today_start = timezone.now().replace(hour=0, minute=0, second=0)
         today_end = timezone.now().replace(hour=23, minute=59, second=59)
         
+        has_attempted = UserProgress.objects.filter(
+            user=request.user,
+            exercise=challenge,
+            completed_at__gte=today_start,
+            completed_at__lte=today_end
+        ).exists()
+        
         is_completed = UserProgress.objects.filter(
             user=request.user,
             exercise=challenge,
@@ -595,7 +602,8 @@ class TodayChallengeView(APIView):
 
         return Response({
             "challenge": challenge_data,
-            "is_completed": is_completed
+            "is_completed": is_completed,
+            "has_attempted": has_attempted
         })
     
 class UserProgressHistoryView(APIView):
@@ -605,7 +613,7 @@ class UserProgressHistoryView(APIView):
         user = request.user
         progress_history = UserProgress.objects.filter(
             user=user,
-            counted_for_ranking=True
+            exercise__is_ranked=True 
         ).order_by('completed_at').values(
             'completed_at',
             'wpm',
@@ -658,9 +666,6 @@ class CollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_ai_questions(request):
-    """
-    Generuje pytania przy użyciu AI, korzystając z bezpiecznej kolejki FIFO.
-    """
     if not gemini_model:
         return Response(
             {"error": "Model AI nie jest dostępny lub nie został poprawnie skonfigurowany (brak klucza API?)."},

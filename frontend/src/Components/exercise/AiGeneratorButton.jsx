@@ -12,8 +12,6 @@ function AiGeneratorButton({ api, text, topic, onQuestionsGenerated, onError }) 
 
   const totalCount = openCount + choiceCount;
 
-  // Obliczamy dynamiczne limity dla każdego suwaka
-  // (np. jeśli mamy 5 pytań zamkniętych, to otwartych może być max 45)
   const maxOpen = MAX_TOTAL - choiceCount;
   const maxChoice = MAX_TOTAL - openCount;
 

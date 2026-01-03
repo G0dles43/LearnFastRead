@@ -79,6 +79,7 @@ export default function Dashboard({ api }) {
               onFilterChange={handleFilterChange}
               sortBy={sortBy}
               onSortChange={handleSortChange}
+              isAdmin={userStatus?.is_admin || false}
             />
           </aside>
 

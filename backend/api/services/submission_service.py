@@ -1,6 +1,8 @@
 import traceback
 from django.utils import timezone
-from ..models import UserProgress, ReadingExercise, DailyChallenge
+from ..models import UserProgress, ReadingExercise
+from . import ranking_logic, wpm_logic, streak_logic, achievement_logic, stats_logic
+from .challenge_service import get_today_challenge
 
 class SubmissionResult:
     def __init__(self, progress, new_achievements, new_wpm_limit):
@@ -21,12 +23,9 @@ class SubmissionResult:
 
 def process_exercise_submission(user, exercise, reading_time_ms, accuracy):
     """
-    Główna logika przetwarzania wyniku.
+    Główna logika przetwarzania wyniku ćwiczenia.
     """
     try:
-        from .challenge_service import get_today_challenge
-        from . import ranking_logic, wpm_logic, streak_logic, achievement_logic
-
         minutes = reading_time_ms / 60000.0
         wpm = 0
         if minutes > 0.0001 and exercise.word_count > 0:
@@ -80,12 +79,16 @@ def process_exercise_submission(user, exercise, reading_time_ms, accuracy):
 
         streak_logic.update_user_streak(user)
         
-        if progress.counted_for_ranking and progress.accuracy >= 60:
-            from . import stats_logic
-            stats_logic.update_user_stats(user)
+        new_achievements = []
+        new_wpm_limit = None
 
-        new_achievements = achievement_logic.check_for_new_achievements(user, progress)
-        new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
+        if accuracy >= 60:
+            if progress.counted_for_ranking or is_daily_attempt:
+                 stats_logic.update_user_stats(user)
+
+            new_achievements = achievement_logic.check_for_new_achievements(user, progress)
+            
+            new_wpm_limit = wpm_logic.check_and_update_wpm_milestone(user, progress)
 
         return SubmissionResult(progress, new_achievements, new_wpm_limit)
 

@@ -56,12 +56,12 @@ class FriendActivitySerializer(serializers.ModelSerializer):
         model = UserProgress
         fields = [
             'id', 
-            'user',        
-            'exercise_title',   
-            'wpm',        
-            'accuracy',        
-            'ranking_points',   
-            'completed_at',   
+            'user',         
+            'exercise_title',    
+            'wpm',         
+            'accuracy',         
+            'ranking_points',    
+            'completed_at',    
             'completed_daily_challenge' 
         ]
 
@@ -157,7 +157,6 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
     daily_date = serializers.DateField(write_only=True, required=False, allow_null=True)
     scheduled_date = serializers.SerializerMethodField()
     
-    # --- NOWE POLE ---
     is_today_daily = serializers.SerializerMethodField()
 
     class Meta:
@@ -167,7 +166,7 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
             'is_daily_candidate',
             'created_by', 'created_by_id', 'word_count', 'questions', 
             'is_favorite', 'created_by_is_admin', 'user_attempt_status',
-            'daily_date', 'scheduled_date', 'is_today_daily' # <--- DODAJ TUTAJ
+            'daily_date', 'scheduled_date', 'is_today_daily' 
         ]
         read_only_fields = ('created_by', 'created_by_id', 'favorited_by')
 
@@ -220,6 +219,17 @@ class ReadingExerciseSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         user = self.context['request'].user
+        
+        # FIX #7: Limit słów dla rankingowych
+        text_content = data.get('text', getattr(self.instance, 'text', ''))
+        word_count = len(text_content.split()) if text_content else 0
+        is_ranked = data.get('is_ranked', getattr(self.instance, 'is_ranked', False))
+
+        if is_ranked and word_count > 1000:
+             raise serializers.ValidationError(
+                f"Ćwiczenie rankingowe nie może mieć więcej niż 1000 słów (obecnie: {word_count})."
+            )
+
         if not user.is_staff:
             if data.get('is_public', False):
                 raise serializers.ValidationError("Nie możesz tworzyć ćwiczeń publicznych.")
@@ -316,8 +326,8 @@ class ExerciseCollectionSerializer(serializers.ModelSerializer):
             'id', 'title', 'slug', 'description', 'icon_name', 
             'is_public', 'created_at', 'created_by_username',
             'exercise_count', 'total_words', 
-            'exercises',   
-            'exercise_ids'   
+            'exercises',    
+            'exercise_ids'    
         ]
         read_only_fields = ['slug']
 

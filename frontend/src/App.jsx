@@ -14,6 +14,7 @@ import CollectionManager from "./Components/collections/CollectionManager.jsx";
 import CollectionForm from "./Components/collections/CollectionForm.jsx";
 import CollectionDetail from "./Components/collections/CollectionDetail.jsx";
 import Profile from "./Components/dashboard/Profile.jsx";
+import ScrollToTop from "./utils/ScrollToTop.jsx";
 import axios from "axios";
 import { useEffect } from "react"; 
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -111,6 +112,7 @@ function App() {
 
   return (
     <>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login api={apiInstance} />} /> 

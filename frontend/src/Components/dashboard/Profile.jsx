@@ -8,30 +8,36 @@ export default function Profile({ api }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [originalData, setOriginalData] = useState({ username: '', email: '', has_usable_password: false });
+  const [originalData, setOriginalData] = useState({ 
+    username: '', 
+    email: '', 
+    has_usable_password: false,
+    current_streak: 0,
+    max_streak: 0 
+  });
   const [username, setUsername] = useState('');
   
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
-  const fileInputRef = useRef(null);
 
   const [passwordData, setPasswordData] = useState({ old_password: '', new_password1: '', new_password2: '' });
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  const API_BASE_URL = "http://127.0.0.1:8000";
-
   const fetchUserData = useCallback(async () => {
     if (!api) return;
     try {
       const res = await api.get("/auth/user/");
+      const statusRes = await api.get("user/status/");
 
       setOriginalData({
         username: res.data.username,
         email: res.data.email,
         has_usable_password: res.data.has_usable_password,
+        current_streak: statusRes.data.current_streak || 0,
+        max_streak: statusRes.data.max_streak || 0,
       });
       setUsername(res.data.username);
 
@@ -52,8 +58,6 @@ export default function Profile({ api }) {
     fetchUserData();
   }, [token, navigate, fetchUserData]);
 
-  
-
   const handleUserSubmit = async (e) => {
     e.preventDefault();
     setUserLoading(true);
@@ -67,7 +71,6 @@ export default function Profile({ api }) {
       formData.append('username', username);
       dataChanged = true;
     }
-
 
     if (!dataChanged) {
       setUserSuccess('Nie wprowadzono żadnych zmian.');
@@ -83,7 +86,6 @@ export default function Profile({ api }) {
       });
 
       setUserSuccess('Profil zaktualizowany!');
-
       await fetchUserData();
 
     } catch (err) {
@@ -156,16 +158,24 @@ export default function Profile({ api }) {
     </div>
   );
 
+  const getDayWord = (days) => {
+    if (days === 1) return 'dzień';
+    if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) {
+      return 'dni';
+    }
+    return 'dni';
+  };
+
   return (
     <div className="min-h-screen bg-background-main text-text-primary p-4 md:p-8">
       <div className="mx-auto w-full max-w-[900px]">
         <header className="flex items-center justify-between mb-8 animate-fade-in">
           <div>
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Edytuj Profil
+              Twój Profil
             </h1>
             <p className="text-text-secondary text-lg">
-              Zarządzaj swoimi danymi i ustawieniami konta.
+              Zarządzaj swoimi danymi i statystykami
             </p>
           </div>
           <button
@@ -179,38 +189,84 @@ export default function Profile({ api }) {
           </button>
         </header>
 
+        {/* Sekcja Statystyk Serii */}
+        <div className="bg-background-elevated shadow-md rounded-lg p-6 animate-fade-in mb-8">
+          <h2 className="text-2xl font-bold mb-6">Twoje Serie</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-warning/20 to-warning/5 border-2 border-warning/30 rounded-lg p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-warning to-yellow-500 flex items-center justify-center shadow-lg">
+                  <img
+                    src="/fire.gif"
+                    alt="Seria"
+                    className="w-10 h-10 object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="text-sm text-text-secondary mb-1">Aktualna Seria</div>
+                  <div className="text-4xl font-bold text-text-primary">
+                    {originalData.current_streak}
+                  </div>
+                </div>
+              </div>
+              <p className="text-text-secondary text-sm">
+                {originalData.current_streak > 0 
+                  ? `Świetnie! ${originalData.current_streak} ${getDayWord(originalData.current_streak)} z rzędu!`
+                  : 'Rozpocznij serię, trenując dziś!'
+                }
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 rounded-lg p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-lg">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-text-secondary mb-1">Najdłuższa Seria</div>
+                  <div className="text-4xl font-bold text-text-primary">
+                    {originalData.max_streak}
+                  </div>
+                </div>
+              </div>
+              <p className="text-text-secondary text-sm">
+                {originalData.max_streak > 0
+                  ? `Twój rekord: ${originalData.max_streak} ${getDayWord(originalData.max_streak)}!`
+                  : 'Zbuduj swoją pierwszą serię!'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-background-elevated shadow-md rounded-lg p-6 animate-fade-in mb-8 [animation-delay:0.1s]">
           <form onSubmit={handleUserSubmit}>
             <h2 className="text-2xl font-bold mb-6">Dane Publiczne</h2>
 
             {userError && (
-              <div className="flex items-center justify-center p-3 w-full rounded-md font-semibold bg-danger/15 text-danger  mb-4">
+              <div className="flex items-center justify-center p-3 w-full rounded-md font-semibold bg-danger/15 text-danger mb-4">
                 {userError}
               </div>
             )}
             {userSuccess && (
-              <div className="flex items-center justify-center p-3 w-full rounded-md font-semibold bg-success/15 text-success  mb-4">
+              <div className="flex items-center justify-center p-3 w-full rounded-md font-semibold bg-success/15 text-success mb-4">
                 {userSuccess}
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
-              <div className="flex-1 w-full">
-                <div className="mb-6">
-                  <label className="block font-semibold text-text-primary mb-2">Nazwa użytkownika</label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    required
-                  />
-                  <span className="block mt-2 text-sm text-text-muted">Zmiana nazwy użytkownika = zmiana loginu</span>
-
-                </div>
-                
-              </div>
+            <div className="mb-6">
+              <label className="block font-semibold text-text-primary mb-2">Nazwa użytkownika</label>
+              <input
+                type="text"
+                name="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="block w-full rounded-md border-2 border-border bg-background-main px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                required
+              />
+              <span className="block mt-2 text-sm text-text-muted">Zmiana nazwy użytkownika = zmiana loginu</span>
             </div>
 
             <div className="flex justify-end">

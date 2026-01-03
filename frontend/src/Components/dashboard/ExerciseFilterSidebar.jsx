@@ -1,13 +1,13 @@
 import React from "react";
 
-const FilterButton = ({ text, isActive, onClick }) => (
+const FilterButton = ({ text, isActive, onClick, colorClass = "text-primary", bgClass = "bg-primary", borderClass = "border-primary" }) => (
   <button
     onClick={onClick}
     className={`
       w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all 
       font-medium text-text-primary
       ${isActive
-        ? 'bg-primary/15 text-primary'
+        ? `${bgClass}/15 ${colorClass}`
         : 'bg-background-main hover:bg-background-surface-hover'
       }
     `}
@@ -15,7 +15,7 @@ const FilterButton = ({ text, isActive, onClick }) => (
     <div className={`
       w-5 h-5 rounded-md border-2 
       ${isActive
-        ? 'bg-primary border-primary'
+        ? `${bgClass} ${borderClass}`
         : 'border-border-light'
       }
       flex items-center justify-center transition-all
@@ -31,7 +31,13 @@ const FilterButton = ({ text, isActive, onClick }) => (
 );
 
 
-export default function ExerciseFilterSidebar({ filterOptions, onFilterChange, sortBy, onSortChange }) {
+export default function ExerciseFilterSidebar({ 
+  filterOptions, 
+  onFilterChange, 
+  sortBy, 
+  onSortChange, 
+  isAdmin 
+}) {
   return (
     <aside className="animate-slide-in [animation-delay:0.3s]">
       <div className="bg-background-elevated shadow-md rounded-lg border border-border p-6 sticky top-8">
@@ -59,10 +65,32 @@ export default function ExerciseFilterSidebar({ filterOptions, onFilterChange, s
             onClick={() => onFilterChange('ranked')}
           />
           <FilterButton
+            text="Publiczne"
+            isActive={filterOptions.public}
+            onClick={() => onFilterChange('public')}
+          />
+          <FilterButton
             text="Moje prywatne"
             isActive={filterOptions.my_private}
             onClick={() => onFilterChange('my_private')}
           />
+
+          {isAdmin && (
+            <>
+              <div className="h-px bg-border my-2" />
+              <label className="block font-semibold text-xs uppercase tracking-wider text-purple-400 mb-1">
+                Panel Admina
+              </label>
+              <FilterButton
+                text="Pula Daily "
+                isActive={filterOptions.daily_candidates}
+                onClick={() => onFilterChange('daily_candidates')}
+                colorClass="text-purple-500"
+                bgClass="bg-purple-500"
+                borderClass="border-purple-500"
+              />
+            </>
+          )}
         </div>
 
         <div className="h-px bg-border my-6" />
@@ -78,6 +106,11 @@ export default function ExerciseFilterSidebar({ filterOptions, onFilterChange, s
           >
             <option value="-created_at">Najnowsze</option>
             <option value="created_at_asc">Najstarsze</option>
+            
+            {isAdmin && (
+               <option value="daily_priority">⚡ Priorytet Daily</option>
+            )}
+            
             <option value="title_asc">Tytuł (A-Z)</option>
             <option value="title_desc">Tytuł (Z-A)</option>
             <option value="word_count_desc">Najdłuższe</option>

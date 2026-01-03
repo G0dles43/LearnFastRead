@@ -251,29 +251,6 @@ export default function ProgressCharts() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg border bg-gradient-to-br from-primary/20 to-primary/5 border-primary/30">
-            <div className="text-sm text-text-secondary mb-1">Średnie WPM</div>
-            <div className="text-3xl font-bold text-text-primary">{stats.avgWpm}</div>
-          </div>
-          <div className="p-4 rounded-lg border bg-gradient-to-br from-secondary/20 to-secondary/5 border-secondary/30">
-            <div className="text-sm text-text-secondary mb-1">Rekord WPM</div>
-            <div className="text-3xl font-bold text-text-primary">{stats.maxWpm}</div>
-          </div>
-          <div className="p-4 rounded-lg border bg-gradient-to-br from-success/20 to-success/5 border-success/30">
-            <div className="text-sm text-text-secondary mb-1">Średnia trafność</div>
-            <div className="text-3xl font-bold text-text-primary">{stats.avgAccuracy}%</div>
-          </div>
-          <div className="p-4 rounded-lg border bg-gradient-to-br from-warning/20 to-warning/5 border-warning/30">
-            <div className="text-sm text-text-secondary mb-1">Postęp</div>
-            <div className="text-3xl font-bold text-text-primary">
-              {stats.improvement > 0 ? '+' : ''}{stats.improvement}%
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="bg-background-elevated shadow-md rounded-lg border border-border p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">

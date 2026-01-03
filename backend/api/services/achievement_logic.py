@@ -7,9 +7,6 @@ def _award_achievement(user: CustomUser, achievement_slug: str) -> Achievement |
     """
     Wewnętrzna funkcja pomocnicza.
     Próbuje przyznać użytkownikowi osiągnięcie.
-    
-    Zwraca obiekt Achievement, jeśli został WŁAŚNIE przyznany.
-    Zwraca None, jeśli użytkownik już je miał lub wystąpił błąd.
     """
     try:
         achievement_to_award = Achievement.objects.get(slug=achievement_slug)
@@ -26,7 +23,7 @@ def _award_achievement(user: CustomUser, achievement_slug: str) -> Achievement |
         return None
         
     except Achievement.DoesNotExist:
-        logger.warning(f"OSTRZEŻENIE: Próba przyznania nieistniejącego osiągnięcia: {achievement_slug}")
+        logger.warning(f"OSTRZEŻENIE: Próba przyznania nieistniejącego osiągnięcia (slug): {achievement_slug}")
         return None
     except Exception as e:
         logger.error(f"Błąd podczas przyznawania osiągnięcia '{achievement_slug}' dla {user.username}: {e}")
@@ -36,12 +33,12 @@ def check_for_new_achievements(user: CustomUser, progress: UserProgress) -> list
     """
     Sprawdza i przyznaje osiągnięcia na podstawie zakończonego ćwiczenia.
     Zwraca listę nowo przyznanych osiągnięć.
+    UWAGA: Ta funkcja jest wywoływana tylko, gdy accuracy >= 60%.
     """
-    
-    if progress.ranking_points <= 0 or not progress.counted_for_ranking:
-        return []
-
     newly_awarded = []
+    
+    if progress.accuracy < 60:
+        return newly_awarded
     
     if progress.wpm >= 300:
         if new_ach := _award_achievement(user, 'wpm_300'):

@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import Quiz from "../leaderboard/Quiz.jsx";
-import HighlightReader from "./HighlightReader.jsx";
 import RSVPReader from "./RSVPReader.jsx";
-import RSVPReaderORP from "./RSVPReaderORP.jsx";
 import ChunkingReader from "./ChunkingReader.jsx";
-import { getDynamicDelay } from "../../utils/readingUtils.js";
+import HighlightReader from "./HighlightReader.jsx";
+import { getDynamicDelay, msToWpm } from "../../utils/readingUtils.js";
 import useAntiCheating from "../../hooks/useAntiCheating.js";
 import CheatPopup from "../ui/CheatPopup.jsx";
 
@@ -15,22 +13,21 @@ export default function TrainingSession({ api }) {
   const [index, setIndex] = useState(0);
   const [startTime, setStartTime] = useState(null);
   const [hasEnded, setHasEnded] = useState(false);
+  
+  // Ref blokujący wielokrotne wywołanie finish (Fix podwójnego zapisu)
+  const isFinishingRef = useRef(false);
+
   const [mode, setMode] = useState("rsvp");
   const { id } = useParams();
   const navigate = useNavigate();
-
   const token = localStorage.getItem("access");
 
   const [speed, setSpeed] = useState(200); 
   const [isLoadingSettings, setIsLoadingSettings] = useState(true); 
-
   const [isMuted, setIsMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [chunkSize, setChunkSize] = useState(3);
-  const [highlightDimensions, setHighlightDimensions] = useState({
-    width: 600,
-    height: 300,
-  });
+  const [highlightDimensions, setHighlightDimensions] = useState({ width: 600, height: 300 });
 
   const totalWords = words.length;
   const remainingWords = totalWords - index;
@@ -41,11 +38,12 @@ export default function TrainingSession({ api }) {
   const [showQuiz, setShowQuiz] = useState(false);
   const [exercise, setExercise] = useState(null);
   const [attemptStatus, setAttemptStatus] = useState(null);
-
   const [finalReadingTime, setFinalReadingTime] = useState(0);
-
   const [cheatReason, setCheatReason] = useState(null);
   const cheatingInProgress = useRef(false);
+
+  // Stan dla Daily Challenge
+  const [isDailyChallenge, setIsDailyChallenge] = useState(false);
 
   const handleCheating = useCallback(async (reason) => {
     if (cheatingInProgress.current || hasEnded) return;
@@ -75,10 +73,13 @@ export default function TrainingSession({ api }) {
     }
   }, [api, id, speed, hasEnded, words.length]); 
 
+  // Anti-cheat aktywny dla Rankingowych ORAZ Daily Challenge
+  const shouldEnableAntiCheat = (exercise?.is_ranked && attemptStatus?.can_rank) || isDailyChallenge;
+
   const { stopListeners } = useAntiCheating(
     handleCheating,
     false,
-    exercise?.is_ranked && attemptStatus?.can_rank
+    shouldEnableAntiCheat
   );
 
   const stopListenersRef = useRef(() => {});
@@ -93,8 +94,9 @@ export default function TrainingSession({ api }) {
     }
     
     setIsLoadingSettings(true);
-    api
-      .get("user/settings/") 
+    isFinishingRef.current = false; // Reset blokady
+
+    api.get("user/settings/") 
       .then((res) => {
         setSpeed(res.data.speed);
         setIsMuted(res.data.muted);
@@ -124,6 +126,10 @@ export default function TrainingSession({ api }) {
         const exerciseRes = await api.get(`exercises/${id}/`);
         const exerciseData = exerciseRes.data;
         setExercise(exerciseData);
+
+        // Sprawdzenie czy to Daily Challenge
+        const isDailyToday = exerciseData.is_today_daily; 
+        setIsDailyChallenge(isDailyToday);
 
         if (exerciseData) {
           const cleanText = exerciseData.text
@@ -167,7 +173,7 @@ export default function TrainingSession({ api }) {
         setIndex((prev) => Math.min(prev + increment, words.length));
       }, delay);
 
-      if (!isMuted && (mode === 'rsvp' || mode === 'rsvp-orp' || mode === 'highlight')) {
+      if (!isMuted && (mode === 'rsvp' || mode === 'highlight')) {
         const sound = new Audio("/click.mp3");
         sound.play().catch(() => {});
       }
@@ -179,8 +185,10 @@ export default function TrainingSession({ api }) {
   }, [index, words, speed, isMuted, isPaused, mode, hasEnded, chunkSize, isLoadingSettings, startTime]);
 
   const finishExercise = () => {
-    if (hasEnded || cheatingInProgress.current) return;
+    // BLOKADA: Jeśli już zakończono lub trwa oszukiwanie lub trwa zapisywanie - przerwij
+    if (hasEnded || cheatingInProgress.current || isFinishingRef.current) return;
     
+    isFinishingRef.current = true; // Zablokuj
     stopListeners();
     setHasEnded(true);
 
@@ -193,11 +201,12 @@ export default function TrainingSession({ api }) {
     }
 
     calculatedReadingTimeMs = Math.floor(calculatedReadingTimeMs * 0.99); 
-    console.log(`Wysyłam czas z boostem 1%: ${calculatedReadingTimeMs} ms`);
-
     setFinalReadingTime(calculatedReadingTimeMs);
 
-    if (exercise?.is_ranked && attemptStatus?.can_rank) {
+    // Quiz pokazujemy dla:
+    // 1. Ćwiczeń rankingowych, które można zaliczyć (can_rank)
+    // 2. LUB dla Daily Challenge (zawsze ma quiz, nawet jeśli to ponowna próba w sensie technicznym, choć UI blokuje ponowne wejście)
+    if ((exercise?.is_ranked && attemptStatus?.can_rank) || isDailyChallenge) {
       api.get(`exercises/${id}/questions/`)
         .then((res) => {
           setQuestions(res.data);
@@ -205,6 +214,7 @@ export default function TrainingSession({ api }) {
         })
         .catch(err => {
           console.error("Nie udało się pobrać pytań do quizu", err);
+          isFinishingRef.current = false; // Odblokuj w razie błędu
           alert("Błąd: Nie udało się wczytać pytań quizu.");
           navigate("/dashboard");
         });
@@ -230,6 +240,7 @@ export default function TrainingSession({ api }) {
     stopListeners();
     setIndex(0);
     setHasEnded(false);
+    isFinishingRef.current = false; 
     setStartTime(Date.now());
     setShowQuiz(false);
     setIsPaused(false);
@@ -241,8 +252,6 @@ export default function TrainingSession({ api }) {
     switch (mode) {
       case "rsvp":
         return <RSVPReader currentWord={words[index]} />;
-      case "rsvp-orp":
-        return <RSVPReaderORP currentWord={words[index]} />;
       case "highlight":
         return (
           <HighlightReader
@@ -273,7 +282,7 @@ export default function TrainingSession({ api }) {
     );
   }
 
-  const isRankingWithQuiz = exercise?.is_ranked && attemptStatus?.can_rank;
+  const isRankingWithQuiz = (exercise?.is_ranked && attemptStatus?.can_rank) || isDailyChallenge;
 
   const readerContainerClasses = `
     flex-1 flex items-center justify-center min-h-[400px] relative overflow-hidden
@@ -299,7 +308,16 @@ export default function TrainingSession({ api }) {
               {exercise?.title || 'Trening czytania'}
             </h1>
 
-            {exercise?.is_ranked && (
+            {isDailyChallenge && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 animate-pulse mb-2 mr-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+                WYZWANIE DNIA
+              </div>
+            )}
+
+            {exercise?.is_ranked && !isDailyChallenge && (
               <>
                 {attemptStatus && !attemptStatus.can_rank ? (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-primary/15 text-primary-light border border-primary/30">
@@ -371,7 +389,7 @@ export default function TrainingSession({ api }) {
           </div>
         </div>
 
-        {exercise?.is_ranked && attemptStatus && !showQuiz && (
+        {exercise?.is_ranked && attemptStatus && !showQuiz && !isDailyChallenge && (
           <div className={`max-w-[1400px] w-full mx-auto mb-8 p-6 rounded-xl flex items-center gap-4 border-2 ${attemptStatus.can_rank
             ? 'bg-warning/15 border-warning/30'
             : 'bg-primary/15 border-primary/30'
@@ -390,6 +408,20 @@ export default function TrainingSession({ api }) {
                   {attemptStatus.ranked_result.points} pkt
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {isDailyChallenge && !showQuiz && (
+          <div className="max-w-[1400px] w-full mx-auto mb-8 p-6 rounded-xl flex items-center gap-4 border-2 bg-purple-500/15 border-purple-500/30">
+            <div className="text-5xl flex-shrink-0">🔥</div>
+            <div className="flex-1">
+              <div className="font-semibold text-text-primary mb-1">
+                Wyzwanie Dnia - Jedna szansa!
+              </div>
+              <div className="text-sm text-text-secondary">
+                Po ukończeniu z 60%+ trafności otrzymasz +50 pkt bonusu!
+              </div>
             </div>
           </div>
         )}
@@ -471,7 +503,7 @@ export default function TrainingSession({ api }) {
                   <div>
                     <div className="text-sm text-text-secondary">Ustawione WPM</div>
                     <div className="text-xl font-bold text-text-primary">
-                      {Math.round(60000 / speed)} WPM
+                      {msToWpm(speed)} WPM
                     </div>
                   </div>
                 </div>

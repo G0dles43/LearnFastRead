@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const msToWpm = (ms) => {
-  if (!ms || ms <= 0) return 300;
-  return Math.round(60000 / ms);
-};
-
-const wpmToMs = (wpm) => {
-  if (!wpm || wpm <= 0) return 200;
-  return Math.round(60000 / wpm);
-};
+import { msToWpm, wpmToMs } from "../../utils/readingUtils.js"; // Import naprawionych funkcji
 
 const HIGHLIGHT_WIDTH_MIN = 200;
 const HIGHLIGHT_WIDTH_MAX = 1200;
@@ -45,6 +36,7 @@ export default function Settings({ api }) {
 
         const speedMs = res.data.speed;
         
+        // Używamy naszej funkcji naprawczej
         let calculatedWpm = msToWpm(speedMs);
 
         if (calculatedWpm > limit) {
@@ -84,6 +76,7 @@ export default function Settings({ api }) {
       wpmToSave = maxWpmLimit;
     }
 
+    // Konwersja WPM na MS przed wysłaniem
     const speedMsToSend = wpmToMs(wpmToSave);
     const finalWidth = Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, highlightWidth));
     const finalHeight = Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, highlightHeight));
@@ -104,21 +97,8 @@ export default function Settings({ api }) {
         console.error("Błąd zapisu ustawień:", err.response);
         if (err.response?.data?.speed) {
           setWpm(maxWpmLimit);
-        } else {
         }
       });
-  };
-
-  const handleWidthChange = (e) => {
-    const value = parseInt(e.target.value, 10);
-    const clampedValue = Math.max(HIGHLIGHT_WIDTH_MIN, Math.min(HIGHLIGHT_WIDTH_MAX, isNaN(value) ? HIGHLIGHT_WIDTH_MIN : value));
-    setHighlightWidth(clampedValue);
-  };
-
-  const handleHeightChange = (e) => {
-    const value = parseInt(e.target.value, 10);
-    const clampedValue = Math.max(HIGHLIGHT_HEIGHT_MIN, Math.min(HIGHLIGHT_HEIGHT_MAX, isNaN(value) ? HIGHLIGHT_HEIGHT_MIN : value));
-    setHighlightHeight(clampedValue);
   };
 
   const getChunkHint = () => {
@@ -167,14 +147,12 @@ export default function Settings({ api }) {
               </svg>
               Tryb czytania
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 ml-40 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <button
                 onClick={() => setMode('rsvp')}
-                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
-                  }`}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'}`}
               >
-                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'rsvp' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
-                  }`}>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'rsvp' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'}`}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'rsvp' ? 'stroke-white' : 'stroke-current'}>
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M9 9h6v6H9z" />
@@ -185,28 +163,10 @@ export default function Settings({ api }) {
               </button>
 
               <button
-                onClick={() => setMode('rsvp-orp')}
-                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'rsvp-orp' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
-                  }`}
-              >
-                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'rsvp-orp' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
-                  }`}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'rsvp-orp' ? 'stroke-white' : 'stroke-current'}>
-                    <circle cx="12" cy="12" r="2" fill={mode === 'rsvp-orp' ? 'white' : 'currentColor'} />
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  </svg>
-                </div>
-                <div className="font-semibold mb-1">RSVP ORP</div>
-                <div className="text-sm text-text-secondary">Z punktem fokusa</div>
-              </button>
-
-              <button
                 onClick={() => setMode('highlight')}
-                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'highlight' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
-                  }`}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'highlight' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'}`}
               >
-                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'highlight' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
-                  }`}>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'highlight' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'}`}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'highlight' ? 'stroke-white' : 'stroke-current'}>
                     <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
@@ -217,11 +177,9 @@ export default function Settings({ api }) {
 
               <button
                 onClick={() => setMode('chunking')}
-                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'chunking' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'
-                  }`}
+                className={`p-6 cursor-pointer transition-all text-center rounded-lg border-2 ${mode === 'chunking' ? 'border-primary bg-primary/10' : 'border-border bg-background-main'}`}
               >
-                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'chunking' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'
-                  }`}>
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-md flex items-center justify-center ${mode === 'chunking' ? 'bg-gradient-to-r from-primary to-primary-light' : 'bg-background-elevated'}`}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" className={mode === 'chunking' ? 'stroke-white' : 'stroke-current'}>
                     <rect x="3" y="4" width="18" height="4" rx="1" />
                     <rect x="3" y="10" width="18" height="4" rx="1" />
